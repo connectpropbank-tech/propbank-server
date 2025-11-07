@@ -1,0 +1,23 @@
+# Binaries
+*.exe
+*.out
+*.dll
+
+# Build folders
+/bin/
+/obj/
+
+# OS files
+.DS_Store
+
+# IDE settings
+.vscode/
+.idea/
+
+# Environment and secrets
+.env
+config/serviceAccountKey.json
+
+# Local scripts (for development/testing only)
+scripts/
+

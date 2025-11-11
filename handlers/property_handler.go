@@ -62,7 +62,7 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 
 	// Upload images to Firebase Storage
 	imageURLs := []string{}
-	if req.Images != nil && len(req.Images) > 0 {
+	if len(req.Images) > 0 {
 		log.Printf("📸 Uploading %d images to Firebase Storage...", len(req.Images))
 		uploadedURLs, err := h.imageService.UploadPropertyImages(r.Context(), req.Images, propertyID)
 		if err != nil {
@@ -333,7 +333,7 @@ func (h *PropertyHandler) GetPropertiesByOwner(w http.ResponseWriter, r *http.Re
 }
 
 func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
+	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -352,14 +352,7 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Check if ownerUID is provided and valid
-	ownerUID, hasOwner := updateRequest["ownerUID"].(string)
-	if !hasOwner {
-		http.Error(w, "Owner UID is required", http.StatusBadRequest)
-		return
-	}
-
-	// Get existing property to verify ownership
+	// Get existing property first
 	existingProperty, err := h.propertyService.GetPropertyByID(r.Context(), path)
 	if err != nil {
 		log.Printf("❌ Property not found: %v", err)
@@ -367,10 +360,13 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Verify ownership
-	if existingProperty.OwnerUID != ownerUID {
-		http.Error(w, "Unauthorized: You can only update your own properties", http.StatusForbidden)
-		return
+	// Check if ownerUID is provided for verification (optional)
+	if ownerUID, hasOwner := updateRequest["ownerUID"].(string); hasOwner {
+		// Verify ownership if ownerUID is provided
+		if existingProperty.OwnerUID != ownerUID {
+			http.Error(w, "Unauthorized: You can only update your own properties", http.StatusForbidden)
+			return
+		}
 	}
 
 	// Handle image updates - keep existing images if no new images provided

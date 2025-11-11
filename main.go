@@ -14,7 +14,7 @@ import (
 // CORS middleware function
 func enableCORS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-User-ID")
 
 	// Handle preflight requests
@@ -41,6 +41,7 @@ func main() {
 	propertyHandler := handlers.NewPropertyHandler(config.GetFirestoreClient())
 	visitHandler := handlers.NewVisitHandler(config.GetFirestoreClient())
 	serviceHandler := handlers.NewServiceHandler(config.GetFirestoreClient())
+	adminNotificationHandler := handlers.NewAdminNotificationHandler(config.GetFirestoreClient())
 
 	// Routes
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -130,7 +131,7 @@ func main() {
 		}
 		if r.Method == "GET" {
 			propertyHandler.GetProperty(w, r)
-		} else if r.Method == "PUT" {
+		} else if r.Method == "PUT" || r.Method == "PATCH" {
 			propertyHandler.UpdateProperty(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -226,6 +227,35 @@ func main() {
 		}
 	})
 
+	// Admin notification routes
+	http.HandleFunc("/admin/notifications", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "POST" {
+			adminNotificationHandler.CreateAdminNotification(w, r)
+		} else if r.Method == "GET" {
+			adminNotificationHandler.GetAdminNotifications(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	http.HandleFunc("/admin/notifications/", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "PUT" && strings.HasSuffix(r.URL.Path, "/read") {
+			adminNotificationHandler.MarkNotificationAsRead(w, r)
+		} else if r.Method == "DELETE" {
+			adminNotificationHandler.DeleteAdminNotification(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// Note: Tenant management is handled via property updates
 	// Tenants are stored as arrays within property documents
 
@@ -241,7 +271,7 @@ func main() {
 	log.Println("   GET  /properties?ownerUID={uid} - Get properties by owner")
 	log.Println("   GET  /properties/search?q={query}&listingType={type}&projectCondition={condition} - Search properties")
 	log.Println("   GET  /properties/{id} - Get property by ID")
-	log.Println("   PUT  /properties/{id} - Update property")
+	log.Println("   PUT/PATCH  /properties/{id} - Update property")
 	log.Println("   POST /visits     - Create visit")
 	log.Println("   GET  /visits?userId={uid} - Get visits by user")
 	log.Println("   GET  /visits/{id} - Get visit by ID")
@@ -252,6 +282,11 @@ func main() {
 	log.Println("   GET  /service-requests?userUID={uid} - Get service requests by user")
 	log.Println("   GET  /service-requests?admin=true - Get all service requests (admin)")
 	log.Println("   PUT  /service-requests/{id} - Update service request status (admin)")
+	log.Println("   POST /admin/notifications - Create admin notification")
+	log.Println("   GET  /admin/notifications - Get all admin notifications")
+	log.Println("   GET  /admin/notifications?unread=true - Get unread admin notifications")
+	log.Println("   PUT  /admin/notifications/{id}/read - Mark notification as read")
+	log.Println("   DELETE /admin/notifications/{id} - Delete admin notification")
 	log.Println("   📝 Note: Tenants managed via property updates (PUT /properties/{id})")
 
 	if err := http.ListenAndServe(":8002", nil); err != nil {

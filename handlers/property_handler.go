@@ -82,11 +82,10 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		ListingType:   req.ListingType,
 
 		// Unit Details
-		UnitNumber:   req.UnitNumber,
-		Floor:        req.Floor,
-		BuildingName: req.BuildingName,
-		Location:     req.Location,
-		Address:      req.Location, // Using location as address for compatibility
+		UnitNumber: req.UnitNumber,
+		Floor:      req.Floor,
+		Location:   req.Location,
+		Address:    req.Location, // Using location as address for compatibility
 
 		// Area Details
 		CarpetArea:      req.CarpetArea,
@@ -132,6 +131,8 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		// Unit Condition & Maintenance
 		UnitCondition:         req.UnitCondition,
 		MaintenanceToBePaidBy: req.MaintenanceToBePaidBy,
+		RentalStatus:          req.RentalStatus,
+		FurnishedChecklist:    req.FurnishedChecklist,
 
 		// Images & Comments
 		Images:           imageURLs,

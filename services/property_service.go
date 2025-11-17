@@ -318,32 +318,34 @@ func (s *PropertyService) SearchProperties(ctx context.Context, query string, li
 		matches := false
 
 		// Search in location fields
-		if strings.Contains(strings.ToLower(property.Location), searchQuery) ||
-			strings.Contains(strings.ToLower(property.Address), searchQuery) ||
-			strings.Contains(strings.ToLower(property.City), searchQuery) ||
-			strings.Contains(strings.ToLower(property.State), searchQuery) ||
-			strings.Contains(strings.ToLower(property.BuildingName), searchQuery) {
+		if (property.Location != "" && strings.Contains(strings.ToLower(property.Location), searchQuery)) ||
+			(property.Address != "" && strings.Contains(strings.ToLower(property.Address), searchQuery)) ||
+			(property.City != "" && strings.Contains(strings.ToLower(property.City), searchQuery)) ||
+			(property.State != "" && strings.Contains(strings.ToLower(property.State), searchQuery)) {
 			matches = true
 		}
 
 		// Search in property details
-		if strings.Contains(strings.ToLower(property.Title), searchQuery) ||
-			strings.Contains(strings.ToLower(property.PropertyType), searchQuery) ||
-			strings.Contains(strings.ToLower(property.Configuration), searchQuery) {
+		if (property.Title != "" && strings.Contains(strings.ToLower(property.Title), searchQuery)) ||
+			(property.PropertyType != "" && strings.Contains(strings.ToLower(property.PropertyType), searchQuery)) ||
+			(property.Configuration != "" && strings.Contains(strings.ToLower(property.Configuration), searchQuery)) {
 			matches = true
 		}
 
 		// Search in specific features like "2bhk", "3bhk", "1rk", etc.
-		configLower := strings.ToLower(property.Configuration)
-		if strings.Contains(configLower, searchQuery) ||
+		configLower := ""
+		if property.Configuration != "" {
+			configLower = strings.ToLower(property.Configuration)
+		}
+		if (configLower != "" && strings.Contains(configLower, searchQuery)) ||
 			(strings.Contains(searchQuery, "bhk") && strings.Contains(configLower, "bhk")) ||
 			(strings.Contains(searchQuery, "rk") && strings.Contains(configLower, "rk")) {
 			matches = true
 		}
 
 		// Search by unit details
-		if strings.Contains(strings.ToLower(property.UnitNumber), searchQuery) ||
-			strings.Contains(strings.ToLower(property.Floor), searchQuery) {
+		if (property.UnitNumber != "" && strings.Contains(strings.ToLower(property.UnitNumber), searchQuery)) ||
+			(property.Floor != "" && strings.Contains(strings.ToLower(property.Floor), searchQuery)) {
 			matches = true
 		}
 

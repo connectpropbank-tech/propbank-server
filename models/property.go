@@ -82,14 +82,13 @@ type Property struct {
 	ListingType   string `json:"listingType" firestore:"listingType"` // rent or sell
 
 	// Unit Details
-	UnitNumber   string `json:"unitNumber" firestore:"unitNumber"`
-	Floor        string `json:"floor" firestore:"floor"`
-	BuildingName string `json:"buildingName" firestore:"buildingName"`
-	Location     string `json:"location" firestore:"location"`
-	Address      string `json:"address" firestore:"address"`
-	City         string `json:"city" firestore:"city"`
-	State        string `json:"state" firestore:"state"`
-	ZipCode      string `json:"zipCode" firestore:"zipCode"`
+	UnitNumber string `json:"unitNumber" firestore:"unitNumber"`
+	Floor      string `json:"floor" firestore:"floor"`
+	Location   string `json:"location" firestore:"location"`
+	Address    string `json:"address" firestore:"address"`
+	City       string `json:"city" firestore:"city"`
+	State      string `json:"state" firestore:"state"`
+	ZipCode    string `json:"zipCode" firestore:"zipCode"`
 
 	// Area Details
 	CarpetArea      string `json:"carpetArea" firestore:"carpetArea"`
@@ -134,9 +133,11 @@ type Property struct {
 	LockInPeriod string `json:"lockInPeriod" firestore:"lockInPeriod"`
 
 	// Unit Condition & Maintenance
-	UnitCondition         string `json:"unitCondition" firestore:"unitCondition"`
-	MaintenanceToBePaidBy string `json:"maintenanceToBePaidBy" firestore:"maintenanceToBePaidBy"`
-	ProjectCondition      string `json:"projectCondition" firestore:"projectCondition"` // New Project, Ready Project, Preleased
+	UnitCondition         string   `json:"unitCondition" firestore:"unitCondition"`
+	MaintenanceToBePaidBy string   `json:"maintenanceToBePaidBy" firestore:"maintenanceToBePaidBy"`
+	ProjectCondition      string   `json:"projectCondition" firestore:"projectCondition"` // New Project, Ready Project, Preleased
+	RentalStatus          string   `json:"rentalStatus" firestore:"rentalStatus"`         // available, rented
+	FurnishedChecklist    []string `json:"furnishedChecklist" firestore:"furnishedChecklist"`
 
 	// Legacy fields for compatibility
 	Description string  `json:"description" firestore:"description"`
@@ -197,10 +198,9 @@ type CreatePropertyRequest struct {
 	ListingType   string `json:"listingType"`
 
 	// Unit Details
-	UnitNumber   string `json:"unitNumber"`
-	Floor        string `json:"floor"`
-	BuildingName string `json:"buildingName"`
-	Location     string `json:"location"`
+	UnitNumber string `json:"unitNumber"`
+	Floor      string `json:"floor"`
+	Location   string `json:"location"`
 
 	// Area Details
 	CarpetArea      string `json:"carpetArea"`
@@ -244,9 +244,11 @@ type CreatePropertyRequest struct {
 	LockInPeriod string `json:"lockInPeriod"`
 
 	// Unit Condition & Maintenance
-	UnitCondition         string `json:"unitCondition"`
-	MaintenanceToBePaidBy string `json:"maintenanceToBePaidBy"`
-	ProjectCondition      string `json:"projectCondition"`
+	UnitCondition         string   `json:"unitCondition"`
+	MaintenanceToBePaidBy string   `json:"maintenanceToBePaidBy"`
+	ProjectCondition      string   `json:"projectCondition"`
+	RentalStatus          string   `json:"rentalStatus"`
+	FurnishedChecklist    []string `json:"furnishedChecklist"`
 
 	// Images & Comments
 	Images           []string `json:"images"`

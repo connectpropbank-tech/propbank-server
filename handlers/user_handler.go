@@ -130,13 +130,19 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		userReq.Role = models.RoleIndividual
 	}
 
+	// Normalize phone number before storing
+	normalizedPhone := ""
+	if userReq.PhoneNumber != "" {
+		normalizedPhone = services.NormalizePhoneNumber(userReq.PhoneNumber)
+	}
+
 	// Create user object
 	user := &models.User{
 		UID:         userReq.UID,
 		Email:       userReq.Email,
 		Name:        userReq.Name,
 		PhotoURL:    userReq.PhotoURL,
-		PhoneNumber: userReq.PhoneNumber,
+		PhoneNumber: normalizedPhone,
 		Role:        userReq.Role,
 		IsActive:    true,
 	}
@@ -168,5 +174,49 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
+}
+
+// SearchUserByPhone handles GET /users/search?phone={phone} - searches for a user by phone number
+func (uh *UserHandler) SearchUserByPhone(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	phoneNumber := r.URL.Query().Get("phone")
+	if phoneNumber == "" {
+		response := models.UserResponse{
+			Success: false,
+			Message: "Phone number is required",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	ctx := context.Background()
+	user, err := uh.userService.GetUserByPhoneNumber(ctx, phoneNumber)
+	if err != nil {
+		log.Printf("User not found with phone %s: %v", phoneNumber, err)
+		response := models.UserResponse{
+			Success: false,
+			Message: "User is not found. Please ask to sign up with our platform to continue.",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	response := models.UserResponse{
+		Success: true,
+		Message: "User found successfully",
+		User:    user,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }

@@ -4,6 +4,26 @@ import (
 	"time"
 )
 
+// SpouseInfo represents spouse information for married tenants
+type SpouseInfo struct {
+	FirstName        string `json:"firstName" firestore:"firstName"`
+	LastName         string `json:"lastName" firestore:"lastName"`
+	Email            string `json:"email" firestore:"email"`
+	Phone            string `json:"phone" firestore:"phone"`
+	EmploymentStatus string `json:"employmentStatus" firestore:"employmentStatus"`
+	Employer         string `json:"employer" firestore:"employer"`
+	Notes            string `json:"notes" firestore:"notes"`
+}
+
+// FurnishedItem represents a furnished item with quantity
+type FurnishedItem struct {
+	ID       string `json:"id" firestore:"id"`
+	Name     string `json:"name" firestore:"name"`
+	Checked  bool   `json:"checked" firestore:"checked"`
+	Quantity int    `json:"quantity" firestore:"quantity"`
+	Category string `json:"category" firestore:"category"`
+}
+
 // TenantInfo represents tenant information stored in property document
 type TenantInfo struct {
 	ID string `json:"id" firestore:"id"`
@@ -14,12 +34,22 @@ type TenantInfo struct {
 	Email            string `json:"email" firestore:"email"`
 	Phone            string `json:"phone" firestore:"phone"`
 	EmergencyContact string `json:"emergencyContact" firestore:"emergencyContact"`
+	UserUID          string `json:"userUID,omitempty" firestore:"userUID,omitempty"` // Map to platform user if found
+
+	// Marital Status
+	IsMarried bool        `json:"isMarried" firestore:"isMarried"`
+	Spouse    *SpouseInfo `json:"spouse,omitempty" firestore:"spouse,omitempty"`
 
 	// Lease Information
 	LeaseStartDate  string `json:"leaseStartDate" firestore:"leaseStartDate"`
 	LeaseEndDate    string `json:"leaseEndDate" firestore:"leaseEndDate"`
 	MonthlyRent     string `json:"monthlyRent" firestore:"monthlyRent"`
 	SecurityDeposit string `json:"securityDeposit" firestore:"securityDeposit"`
+
+	// Payment Details
+	PaymentDueDate       string `json:"paymentDueDate" firestore:"paymentDueDate"`
+	EscalationPercentage string `json:"escalationPercentage" firestore:"escalationPercentage"`
+	EscalationAmount     string `json:"escalationAmount" firestore:"escalationAmount"`
 
 	// Background Information
 	PreviousAddress  string `json:"previousAddress" firestore:"previousAddress"`
@@ -92,7 +122,6 @@ type Property struct {
 
 	// Area Details
 	CarpetArea      string `json:"carpetArea" firestore:"carpetArea"`
-	PlotArea        string `json:"plotArea" firestore:"plotArea"`
 	ConstructedArea string `json:"constructedArea" firestore:"constructedArea"`
 	SquareFeet      int    `json:"squareFeet" firestore:"squareFeet"`
 
@@ -133,11 +162,12 @@ type Property struct {
 	LockInPeriod string `json:"lockInPeriod" firestore:"lockInPeriod"`
 
 	// Unit Condition & Maintenance
-	UnitCondition         string   `json:"unitCondition" firestore:"unitCondition"`
-	MaintenanceToBePaidBy string   `json:"maintenanceToBePaidBy" firestore:"maintenanceToBePaidBy"`
-	ProjectCondition      string   `json:"projectCondition" firestore:"projectCondition"` // New Project, Ready Project, Preleased
-	RentalStatus          string   `json:"rentalStatus" firestore:"rentalStatus"`         // available, rented
-	FurnishedChecklist    []string `json:"furnishedChecklist" firestore:"furnishedChecklist"`
+	UnitCondition         string          `json:"unitCondition" firestore:"unitCondition"`
+	MaintenanceToBePaidBy string          `json:"maintenanceToBePaidBy" firestore:"maintenanceToBePaidBy"`
+	ProjectCondition      string          `json:"projectCondition" firestore:"projectCondition"` // New Project, Ready Project, Preleased
+	RentalStatus          string          `json:"rentalStatus" firestore:"rentalStatus"`         // available, rented
+	AgreementStatus       string          `json:"agreementStatus" firestore:"agreementStatus"`   // active, terminated, renewed
+	FurnishedChecklist    []FurnishedItem `json:"furnishedChecklist" firestore:"furnishedChecklist"`
 
 	// Legacy fields for compatibility
 	Description string  `json:"description" firestore:"description"`
@@ -159,35 +189,75 @@ type Property struct {
 	OwnerUID   string    `json:"ownerUID" firestore:"ownerUID"`
 	OwnerName  string    `json:"ownerName" firestore:"ownerName"`
 	OwnerEmail string    `json:"ownerEmail" firestore:"ownerEmail"`
-	IsActive   bool      `json:"isActive" firestore:"isActive"`
+	WantToSell bool      `json:"wantToSell" firestore:"wantToSell"` // Toggle for "Want to Sell?" - can be toggled ON/OFF
+	Status     string    `json:"status" firestore:"status"`         // "active" or "inactive" (default: "active")
+	IsActive   bool      `json:"isActive" firestore:"isActive"`     // Legacy field, kept for backward compatibility
 	CreatedAt  time.Time `json:"createdAt" firestore:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt" firestore:"updatedAt"`
 }
 
 type PropertyResponse struct {
-	ID               string       `json:"id"`
-	Title            string       `json:"title"`
-	Description      string       `json:"description"`
-	Price            float64      `json:"price"`
-	Address          string       `json:"address"`
-	City             string       `json:"city"`
-	State            string       `json:"state"`
-	ZipCode          string       `json:"zipCode"`
-	PropertyType     string       `json:"propertyType"`
-	ListingType      string       `json:"listingType"`
-	ProjectCondition string       `json:"projectCondition"`
-	Bedrooms         int          `json:"bedrooms"`
-	Bathrooms        float64      `json:"bathrooms"`
-	SquareFeet       int          `json:"squareFeet"`
-	Images           []string     `json:"images"`
-	Tenants          []TenantInfo `json:"tenants"`
-	Buyers           []BuyerInfo  `json:"buyers"`
-	OwnerUID         string       `json:"ownerUID"`
-	OwnerName        string       `json:"ownerName"`
-	OwnerEmail       string       `json:"ownerEmail"`
-	IsActive         bool         `json:"isActive"`
-	CreatedAt        time.Time    `json:"createdAt"`
-	UpdatedAt        time.Time    `json:"updatedAt"`
+	ID                    string          `json:"id"`
+	Title                 string          `json:"title"`
+	Description           string          `json:"description"`
+	Price                 float64         `json:"price"`
+	Address               string          `json:"address"`
+	City                  string          `json:"city"`
+	State                 string          `json:"state"`
+	ZipCode               string          `json:"zipCode"`
+	PropertyType          string          `json:"propertyType"`
+	ListingType           string          `json:"listingType"`
+	Configuration         string          `json:"configuration"`
+	UnitNumber            string          `json:"unitNumber"`
+	Floor                 string          `json:"floor"`
+	Location              string          `json:"location"`
+	CarpetArea            string          `json:"carpetArea"`
+	ConstructedArea       string          `json:"constructedArea"`
+	SquareFeet            int             `json:"squareFeet"`
+	TenantName            string          `json:"tenantName"`
+	PersonName            string          `json:"personName"`
+	MobileNumber          string          `json:"mobileNumber"`
+	PrimaryNo             string          `json:"primaryNo"`
+	UltNo                 string          `json:"ultNo"`
+	MonthlyRent           string          `json:"monthlyRent"`
+	SellingPrice          string          `json:"sellingPrice"`
+	MonthlyRent1stYear    string          `json:"monthlyRent1stYear"`
+	MonthlyRent2ndYear    string          `json:"monthlyRent2ndYear"`
+	MonthlyRent3rdYear    string          `json:"monthlyRent3rdYear"`
+	MonthlyRent4thYear    string          `json:"monthlyRent4thYear"`
+	RentFromDate1         string          `json:"rentFromDate1"`
+	RentToDate1           string          `json:"rentToDate1"`
+	RentFromDate2         string          `json:"rentFromDate2"`
+	RentToDate2           string          `json:"rentToDate2"`
+	PaymentDueDate        string          `json:"paymentDueDate"`
+	EscalationPercentage  string          `json:"escalationPercentage"`
+	EscalationAmount      string          `json:"escalationAmount"`
+	SecurityDeposit       string          `json:"securityDeposit"`
+	AgreementPeriod       string          `json:"agreementPeriod"`
+	AgreementStartDate    string          `json:"agreementStartDate"`
+	AgreementEndDate      string          `json:"agreementEndDate"`
+	NoticePeriod          string          `json:"noticePeriod"`
+	LockInPeriod          string          `json:"lockInPeriod"`
+	UnitCondition         string          `json:"unitCondition"`
+	MaintenanceToBePaidBy string          `json:"maintenanceToBePaidBy"`
+	ProjectCondition      string          `json:"projectCondition"`
+	RentalStatus          string          `json:"rentalStatus"`
+	FurnishedChecklist    []FurnishedItem `json:"furnishedChecklist"`
+	Images                []string        `json:"images"`
+	SpecificComments      string          `json:"specificComments"`
+	Tenants               []TenantInfo    `json:"tenants"`
+	Buyers                []BuyerInfo     `json:"buyers"`
+	OwnerUID              string          `json:"ownerUID"`
+	OwnerName             string          `json:"ownerName"`
+	OwnerEmail            string          `json:"ownerEmail"`
+	WantToSell            bool            `json:"wantToSell"` // Toggle for "Want to Sell?" - can be toggled ON/OFF
+	Status                string          `json:"status"`     // "active" or "inactive"
+	IsActive              bool            `json:"isActive"`   // Legacy field
+	CreatedAt             time.Time       `json:"createdAt"`
+	UpdatedAt             time.Time       `json:"updatedAt"`
+	Bedrooms              int             `json:"bedrooms"`
+	Bathrooms             float64         `json:"bathrooms"`
+	UserRole              string          `json:"userRole,omitempty"` // "owner" or "tenant" - indicates the current user's relationship to the property
 }
 
 type CreatePropertyRequest struct {
@@ -204,7 +274,6 @@ type CreatePropertyRequest struct {
 
 	// Area Details
 	CarpetArea      string `json:"carpetArea"`
-	PlotArea        string `json:"plotArea"`
 	ConstructedArea string `json:"constructedArea"`
 
 	// Tenant Information
@@ -244,11 +313,11 @@ type CreatePropertyRequest struct {
 	LockInPeriod string `json:"lockInPeriod"`
 
 	// Unit Condition & Maintenance
-	UnitCondition         string   `json:"unitCondition"`
-	MaintenanceToBePaidBy string   `json:"maintenanceToBePaidBy"`
-	ProjectCondition      string   `json:"projectCondition"`
-	RentalStatus          string   `json:"rentalStatus"`
-	FurnishedChecklist    []string `json:"furnishedChecklist"`
+	UnitCondition         string          `json:"unitCondition"`
+	MaintenanceToBePaidBy string          `json:"maintenanceToBePaidBy"`
+	ProjectCondition      string          `json:"projectCondition"`
+	RentalStatus          string          `json:"rentalStatus"`
+	FurnishedChecklist    []FurnishedItem `json:"furnishedChecklist"`
 
 	// Images & Comments
 	Images           []string `json:"images"`

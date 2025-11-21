@@ -9,48 +9,22 @@ import (
 	"strings"
 	"time"
 
+	"shoprop-backend/models"
+	"shoprop-backend/services"
+
 	"cloud.google.com/go/firestore"
 )
 
 type TenantHandler struct {
-	client *firestore.Client
-}
-
-type Tenant struct {
-	ID         string `json:"id" firestore:"id"`
-	PropertyID string `json:"propertyId" firestore:"propertyId"`
-	OwnerUID   string `json:"ownerUID" firestore:"ownerUID"`
-
-	// Personal Information
-	FirstName        string `json:"firstName" firestore:"firstName"`
-	LastName         string `json:"lastName" firestore:"lastName"`
-	Email            string `json:"email" firestore:"email"`
-	Phone            string `json:"phone" firestore:"phone"`
-	EmergencyContact string `json:"emergencyContact" firestore:"emergencyContact"`
-
-	// Lease Information
-	LeaseStartDate  string `json:"leaseStartDate" firestore:"leaseStartDate"`
-	LeaseEndDate    string `json:"leaseEndDate" firestore:"leaseEndDate"`
-	MonthlyRent     string `json:"monthlyRent" firestore:"monthlyRent"`
-	SecurityDeposit string `json:"securityDeposit" firestore:"securityDeposit"`
-
-	// Address Information
-	PreviousAddress  string `json:"previousAddress" firestore:"previousAddress"`
-	EmploymentStatus string `json:"employmentStatus" firestore:"employmentStatus"`
-	Employer         string `json:"employer" firestore:"employer"`
-	MonthlyIncome    string `json:"monthlyIncome" firestore:"monthlyIncome"`
-
-	// Additional Notes
-	Notes string `json:"notes" firestore:"notes"`
-
-	// System Info
-	IsActive  bool      `json:"isActive" firestore:"isActive"`
-	CreatedAt time.Time `json:"createdAt" firestore:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt" firestore:"updatedAt"`
+	client      *firestore.Client
+	userService *services.UserService
 }
 
 func NewTenantHandler(client *firestore.Client) *TenantHandler {
-	return &TenantHandler{client: client}
+	return &TenantHandler{
+		client:      client,
+		userService: services.NewUserService(client),
+	}
 }
 
 // CreateTenant creates new tenants and adds them to the property document
@@ -62,9 +36,9 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 
 	// Define request structure
 	var requestData struct {
-		PropertyID string   `json:"propertyId"`
-		OwnerUID   string   `json:"ownerUID"`
-		Tenants    []Tenant `json:"tenants"`
+		PropertyID string          `json:"propertyId"`
+		OwnerUID   string          `json:"ownerUID"`
+		Tenants    []models.Tenant `json:"tenants"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
@@ -97,6 +71,14 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("❌ Property %s not found: %v", requestData.PropertyID, err)
 		http.Error(w, "Property not found", http.StatusNotFound)
+		return
+	}
+
+	// Get property details for user mapping
+	var property models.Property
+	if err := propertyDoc.DataTo(&property); err != nil {
+		log.Printf("❌ Error reading property data: %v", err)
+		http.Error(w, "Failed to read property data", http.StatusInternalServerError)
 		return
 	}
 
@@ -149,28 +131,57 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 
 		// Convert tenant to map for property storage
 		tenantInfo := map[string]interface{}{
-			"id":               tenant.ID,
-			"firstName":        tenant.FirstName,
-			"lastName":         tenant.LastName,
-			"email":            tenant.Email,
-			"phone":            tenant.Phone,
-			"emergencyContact": tenant.EmergencyContact,
-			"leaseStartDate":   tenant.LeaseStartDate,
-			"leaseEndDate":     tenant.LeaseEndDate,
-			"monthlyRent":      tenant.MonthlyRent,
-			"securityDeposit":  tenant.SecurityDeposit,
-			"previousAddress":  tenant.PreviousAddress,
-			"employmentStatus": tenant.EmploymentStatus,
-			"employer":         tenant.Employer,
-			"monthlyIncome":    tenant.MonthlyIncome,
-			"notes":            tenant.Notes,
-			"isActive":         tenant.IsActive,
-			"createdAt":        tenant.CreatedAt,
-			"updatedAt":        tenant.UpdatedAt,
+			"id":                   tenant.ID,
+			"firstName":            tenant.FirstName,
+			"lastName":             tenant.LastName,
+			"email":                tenant.Email,
+			"phone":                tenant.Phone,
+			"emergencyContact":     tenant.EmergencyContact,
+			"userUID":              tenant.UserUID, // Map to platform user if found
+			"isMarried":            tenant.IsMarried,
+			"leaseStartDate":       tenant.LeaseStartDate,
+			"leaseEndDate":         tenant.LeaseEndDate,
+			"monthlyRent":          tenant.MonthlyRent,
+			"securityDeposit":      tenant.SecurityDeposit,
+			"paymentDueDate":       tenant.PaymentDueDate,
+			"escalationPercentage": tenant.EscalationPercentage,
+			"escalationAmount":     tenant.EscalationAmount,
+			"previousAddress":      tenant.PreviousAddress,
+			"employmentStatus":     tenant.EmploymentStatus,
+			"employer":             tenant.Employer,
+			"monthlyIncome":        tenant.MonthlyIncome,
+			"notes":                tenant.Notes,
+			"isActive":             tenant.IsActive,
+			"createdAt":            tenant.CreatedAt,
+			"updatedAt":            tenant.UpdatedAt,
+		}
+
+		// Add spouse info if tenant is married
+		if tenant.IsMarried && tenant.Spouse != nil {
+			tenantInfo["spouse"] = map[string]interface{}{
+				"firstName":        tenant.Spouse.FirstName,
+				"lastName":         tenant.Spouse.LastName,
+				"email":            tenant.Spouse.Email,
+				"phone":            tenant.Spouse.Phone,
+				"employmentStatus": tenant.Spouse.EmploymentStatus,
+				"employer":         tenant.Spouse.Employer,
+				"notes":            tenant.Spouse.Notes,
+			}
 		}
 
 		newTenantInfos = append(newTenantInfos, tenantInfo)
 		log.Printf("✅ Tenant created successfully: %s %s for property %s", tenant.FirstName, tenant.LastName, tenant.PropertyID)
+
+		// If tenant has a userUID (platform user), update user with property information
+		if tenant.UserUID != "" {
+			err := h.updateUserRentedProperty(ctx, tenant.UserUID, requestData.PropertyID, property.OwnerUID, property.OwnerName)
+			if err != nil {
+				log.Printf("⚠️  Warning: Failed to update user %s with property info: %v", tenant.UserUID, err)
+				// Don't fail the tenant creation if user update fails
+			} else {
+				log.Printf("✅ User %s updated with rented property: %s (Owner: %s)", tenant.UserUID, requestData.PropertyID, property.OwnerName)
+			}
+		}
 	}
 
 	// Update property with new tenants (append to existing)
@@ -214,14 +225,14 @@ func (h *TenantHandler) GetTenantsByProperty(w http.ResponseWriter, r *http.Requ
 	// Query tenants by property ID
 	iter := h.client.Collection("tenants").Where("propertyId", "==", propertyID).Where("isActive", "==", true).Documents(ctx)
 
-	var tenants []Tenant
+	var tenants []models.Tenant
 	for {
 		doc, err := iter.Next()
 		if err != nil {
 			break
 		}
 
-		var tenant Tenant
+		var tenant models.Tenant
 		if err := doc.DataTo(&tenant); err != nil {
 			log.Printf("❌ Error converting tenant document: %v", err)
 			continue
@@ -262,7 +273,7 @@ func (h *TenantHandler) GetTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var tenant Tenant
+	var tenant models.Tenant
 	if err := doc.DataTo(&tenant); err != nil {
 		log.Printf("❌ Error converting tenant document: %v", err)
 		http.Error(w, "Failed to parse tenant data", http.StatusInternalServerError)
@@ -367,4 +378,27 @@ func (h *TenantHandler) DeleteTenant(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"message": "Tenant deleted successfully",
 	})
+}
+
+// updateUserRentedProperty updates a user's record with rented property information
+func (h *TenantHandler) updateUserRentedProperty(ctx context.Context, userUID, propertyID, ownerUID, ownerName string) error {
+	// Get existing user
+	user, err := h.userService.GetUserByID(ctx, userUID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %v", err)
+	}
+
+	// Update user with rented property information
+	user.RentedPropertyID = propertyID
+	user.RentedPropertyOwnerID = ownerUID
+	user.RentedPropertyOwnerName = ownerName
+	user.UpdatedAt = time.Now()
+
+	// Save updated user
+	err = h.userService.CreateOrUpdateUser(ctx, user)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %v", err)
+	}
+
+	return nil
 }

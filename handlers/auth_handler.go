@@ -89,13 +89,19 @@ func (ah *AuthHandler) CreateOrUpdateUser(w http.ResponseWriter, r *http.Request
 	existingUser, err := ah.userService.GetUserByID(ctx, req.UID)
 	isUpdate := err == nil && existingUser != nil
 
+	// Normalize phone number before storing
+	normalizedPhone := ""
+	if req.PhoneNumber != "" {
+		normalizedPhone = services.NormalizePhoneNumber(req.PhoneNumber)
+	}
+
 	// Create user model
 	user := models.User{
 		UID:         req.UID,
 		Email:       req.Email,
 		Name:        req.Name,
 		PhotoURL:    req.PhotoURL,
-		PhoneNumber: req.PhoneNumber,
+		PhoneNumber: normalizedPhone,
 		Role:        req.Role,
 		IsActive:    true,
 	}

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,25 +10,28 @@ import (
 	"shoprop-backend/models"
 	"shoprop-backend/services"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/firestore"
 )
 
 type PropertyHandler struct {
-	propertyService *services.PropertyService
-	userService     *services.UserService
-	imageService    *services.ImageService
+	propertyService         *services.PropertyService
+	userService             *services.UserService
+	imageService            *services.ImageService
+	adminNotificationService *services.AdminNotificationService
 }
 
 func NewPropertyHandler(client *firestore.Client) *PropertyHandler {
 	// Initialize image service with Firebase Storage
 	storageClient := config.GetStorageClient()
-	bucketName := "propbank-a98ed.appspot.com" // Replace with your Firebase project bucket name
+	bucketName := config.GetStorageBucket()
 
 	return &PropertyHandler{
-		propertyService: services.NewPropertyService(client),
-		userService:     services.NewUserService(client),
-		imageService:    services.NewImageService(storageClient, bucketName),
+		propertyService:          services.NewPropertyService(client),
+		userService:              services.NewUserService(client),
+		imageService:             services.NewImageService(storageClient, bucketName),
+		adminNotificationService: services.NewAdminNotificationService(client),
 	}
 }
 
@@ -89,7 +93,6 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 
 		// Area Details
 		CarpetArea:      req.CarpetArea,
-		PlotArea:        req.PlotArea,
 		ConstructedArea: req.ConstructedArea,
 
 		// Tenant Information
@@ -142,6 +145,9 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		OwnerUID:   req.OwnerUID,
 		OwnerName:  owner.Name,
 		OwnerEmail: owner.Email,
+		
+		// Status - set default to "active" if not provided
+		Status: "active", // Default status for new properties
 	}
 
 	// Create property in database
@@ -160,25 +166,66 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		"success": true,
 		"message": "Property created successfully",
 		"property": models.PropertyResponse{
-			ID:           createdProperty.ID,
-			Title:        createdProperty.Title,
-			Description:  createdProperty.Description,
-			Price:        createdProperty.Price,
-			Address:      createdProperty.Address,
-			City:         createdProperty.City,
-			State:        createdProperty.State,
-			ZipCode:      createdProperty.ZipCode,
-			PropertyType: createdProperty.PropertyType,
-			Bedrooms:     createdProperty.Bedrooms,
-			Bathrooms:    createdProperty.Bathrooms,
-			SquareFeet:   createdProperty.SquareFeet,
-			Images:       createdProperty.Images,
-			OwnerUID:     createdProperty.OwnerUID,
-			OwnerName:    createdProperty.OwnerName,
-			OwnerEmail:   createdProperty.OwnerEmail,
-			IsActive:     createdProperty.IsActive,
-			CreatedAt:    createdProperty.CreatedAt,
-			UpdatedAt:    createdProperty.UpdatedAt,
+			ID:                    createdProperty.ID,
+			Title:                 createdProperty.Title,
+			Description:           createdProperty.Description,
+			Price:                 createdProperty.Price,
+			Address:               createdProperty.Address,
+			City:                  createdProperty.City,
+			State:                 createdProperty.State,
+			ZipCode:               createdProperty.ZipCode,
+			PropertyType:          createdProperty.PropertyType,
+			ListingType:           createdProperty.ListingType,
+			Configuration:         createdProperty.Configuration,
+			UnitNumber:            createdProperty.UnitNumber,
+			Floor:                 createdProperty.Floor,
+			Location:              createdProperty.Location,
+			CarpetArea:            createdProperty.CarpetArea,
+			ConstructedArea:       createdProperty.ConstructedArea,
+			SquareFeet:            createdProperty.SquareFeet,
+			TenantName:            createdProperty.TenantName,
+			PersonName:            createdProperty.PersonName,
+			MobileNumber:          createdProperty.MobileNumber,
+			PrimaryNo:             createdProperty.PrimaryNo,
+			UltNo:                 createdProperty.UltNo,
+			MonthlyRent:           createdProperty.MonthlyRent,
+			SellingPrice:          createdProperty.SellingPrice,
+			MonthlyRent1stYear:    createdProperty.MonthlyRent1stYear,
+			MonthlyRent2ndYear:    createdProperty.MonthlyRent2ndYear,
+			MonthlyRent3rdYear:    createdProperty.MonthlyRent3rdYear,
+			MonthlyRent4thYear:    createdProperty.MonthlyRent4thYear,
+			RentFromDate1:         createdProperty.RentFromDate1,
+			RentToDate1:           createdProperty.RentToDate1,
+			RentFromDate2:         createdProperty.RentFromDate2,
+			RentToDate2:           createdProperty.RentToDate2,
+			PaymentDueDate:        createdProperty.PaymentDueDate,
+			EscalationPercentage:  createdProperty.EscalationPercentage,
+			EscalationAmount:      createdProperty.EscalationAmount,
+			SecurityDeposit:       createdProperty.SecurityDeposit,
+			AgreementPeriod:       createdProperty.AgreementPeriod,
+			AgreementStartDate:    createdProperty.AgreementStartDate,
+			AgreementEndDate:      createdProperty.AgreementEndDate,
+			NoticePeriod:          createdProperty.NoticePeriod,
+			LockInPeriod:          createdProperty.LockInPeriod,
+			UnitCondition:         createdProperty.UnitCondition,
+			MaintenanceToBePaidBy: createdProperty.MaintenanceToBePaidBy,
+			ProjectCondition:      createdProperty.ProjectCondition,
+			RentalStatus:          createdProperty.RentalStatus,
+			FurnishedChecklist:    createdProperty.FurnishedChecklist,
+			Images:                createdProperty.Images,
+			SpecificComments:      createdProperty.SpecificComments,
+			Tenants:               createdProperty.Tenants,
+			Buyers:                createdProperty.Buyers,
+			OwnerUID:              createdProperty.OwnerUID,
+			OwnerName:             createdProperty.OwnerName,
+			OwnerEmail:            createdProperty.OwnerEmail,
+			WantToSell:            createdProperty.WantToSell,
+			Status:                createdProperty.Status,
+			IsActive:              createdProperty.IsActive,
+			CreatedAt:             createdProperty.CreatedAt,
+			UpdatedAt:             createdProperty.UpdatedAt,
+			Bedrooms:              createdProperty.Bedrooms,
+			Bathrooms:             createdProperty.Bathrooms,
 		},
 	})
 }
@@ -213,25 +260,66 @@ func (h *PropertyHandler) GetAllProperties(w http.ResponseWriter, r *http.Reques
 	var propertyResponses []models.PropertyResponse
 	for _, property := range properties {
 		propertyResponses = append(propertyResponses, models.PropertyResponse{
-			ID:           property.ID,
-			Title:        property.Title,
-			Description:  property.Description,
-			Price:        property.Price,
-			Address:      property.Address,
-			City:         property.City,
-			State:        property.State,
-			ZipCode:      property.ZipCode,
-			PropertyType: property.PropertyType,
-			Bedrooms:     property.Bedrooms,
-			Bathrooms:    property.Bathrooms,
-			SquareFeet:   property.SquareFeet,
-			Images:       property.Images,
-			OwnerUID:     property.OwnerUID,
-			OwnerName:    property.OwnerName,
-			OwnerEmail:   property.OwnerEmail,
-			IsActive:     property.IsActive,
-			CreatedAt:    property.CreatedAt,
-			UpdatedAt:    property.UpdatedAt,
+			ID:                    property.ID,
+			Title:                 property.Title,
+			Description:           property.Description,
+			Price:                 property.Price,
+			Address:               property.Address,
+			City:                  property.City,
+			State:                 property.State,
+			ZipCode:               property.ZipCode,
+			PropertyType:          property.PropertyType,
+			ListingType:           property.ListingType,
+			Configuration:         property.Configuration,
+			UnitNumber:            property.UnitNumber,
+			Floor:                 property.Floor,
+			Location:              property.Location,
+			CarpetArea:            property.CarpetArea,
+			ConstructedArea:       property.ConstructedArea,
+			SquareFeet:            property.SquareFeet,
+			TenantName:            property.TenantName,
+			PersonName:            property.PersonName,
+			MobileNumber:          property.MobileNumber,
+			PrimaryNo:             property.PrimaryNo,
+			UltNo:                 property.UltNo,
+			MonthlyRent:           property.MonthlyRent,
+			SellingPrice:          property.SellingPrice,
+			MonthlyRent1stYear:    property.MonthlyRent1stYear,
+			MonthlyRent2ndYear:    property.MonthlyRent2ndYear,
+			MonthlyRent3rdYear:    property.MonthlyRent3rdYear,
+			MonthlyRent4thYear:    property.MonthlyRent4thYear,
+			RentFromDate1:         property.RentFromDate1,
+			RentToDate1:           property.RentToDate1,
+			RentFromDate2:         property.RentFromDate2,
+			RentToDate2:           property.RentToDate2,
+			PaymentDueDate:        property.PaymentDueDate,
+			EscalationPercentage:  property.EscalationPercentage,
+			EscalationAmount:      property.EscalationAmount,
+			SecurityDeposit:       property.SecurityDeposit,
+			AgreementPeriod:       property.AgreementPeriod,
+			AgreementStartDate:    property.AgreementStartDate,
+			AgreementEndDate:      property.AgreementEndDate,
+			NoticePeriod:          property.NoticePeriod,
+			LockInPeriod:          property.LockInPeriod,
+			UnitCondition:         property.UnitCondition,
+			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
+			ProjectCondition:      property.ProjectCondition,
+			RentalStatus:          property.RentalStatus,
+			FurnishedChecklist:    property.FurnishedChecklist,
+			Images:                property.Images,
+			SpecificComments:      property.SpecificComments,
+			Tenants:               property.Tenants,
+			Buyers:                property.Buyers,
+			OwnerUID:              property.OwnerUID,
+			OwnerName:             property.OwnerName,
+			OwnerEmail:            property.OwnerEmail,
+			WantToSell:            property.WantToSell,
+			Status:                property.Status,
+			IsActive:              property.IsActive,
+			CreatedAt:             property.CreatedAt,
+			UpdatedAt:             property.UpdatedAt,
+			Bedrooms:              property.Bedrooms,
+			Bathrooms:             property.Bathrooms,
 		})
 	}
 
@@ -288,39 +376,266 @@ func (h *PropertyHandler) GetPropertiesByOwner(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	properties, err := h.propertyService.GetPropertiesByOwner(r.Context(), ownerUID)
+	// Get ALL properties for this owner (regardless of isActive status)
+	ownedProperties, err := h.propertyService.GetPropertiesByOwner(r.Context(), ownerUID)
 	if err != nil {
 		log.Printf("❌ Failed to get properties by owner: %v", err)
 		http.Error(w, "Failed to get properties", http.StatusInternalServerError)
 		return
 	}
 
+	// Also get properties where the user is a tenant
+	tenantProperties, err := h.propertyService.GetPropertiesByTenantUID(r.Context(), ownerUID)
+	if err != nil {
+		log.Printf("⚠️  Warning: Failed to get properties by tenant: %v (continuing with owned properties only)", err)
+		tenantProperties = []models.Property{} // Continue with empty tenant properties if error
+	}
+
+	log.Printf("📦 Found %d owned properties and %d tenant properties for userUID: %s", len(ownedProperties), len(tenantProperties), ownerUID)
+
+	// Create a map to track property IDs to avoid duplicates (in case a user is both owner and tenant)
+	propertyMap := make(map[string]*models.PropertyResponse)
+
+	// Convert owned properties to response format with "owner" role
+	for _, property := range ownedProperties {
+		propertyMap[property.ID] = &models.PropertyResponse{
+			ID:                    property.ID,
+			Title:                 property.Title,
+			Description:           property.Description,
+			Price:                 property.Price,
+			Address:               property.Address,
+			City:                  property.City,
+			State:                 property.State,
+			ZipCode:               property.ZipCode,
+			PropertyType:          property.PropertyType,
+			ListingType:           property.ListingType,
+			Configuration:         property.Configuration,
+			UnitNumber:            property.UnitNumber,
+			Floor:                 property.Floor,
+			Location:              property.Location,
+			CarpetArea:            property.CarpetArea,
+			ConstructedArea:       property.ConstructedArea,
+			SquareFeet:            property.SquareFeet,
+			TenantName:            property.TenantName,
+			PersonName:            property.PersonName,
+			MobileNumber:          property.MobileNumber,
+			PrimaryNo:             property.PrimaryNo,
+			UltNo:                 property.UltNo,
+			MonthlyRent:           property.MonthlyRent,
+			SellingPrice:          property.SellingPrice,
+			MonthlyRent1stYear:    property.MonthlyRent1stYear,
+			MonthlyRent2ndYear:    property.MonthlyRent2ndYear,
+			MonthlyRent3rdYear:    property.MonthlyRent3rdYear,
+			MonthlyRent4thYear:    property.MonthlyRent4thYear,
+			RentFromDate1:         property.RentFromDate1,
+			RentToDate1:           property.RentToDate1,
+			RentFromDate2:         property.RentFromDate2,
+			RentToDate2:           property.RentToDate2,
+			PaymentDueDate:        property.PaymentDueDate,
+			EscalationPercentage:  property.EscalationPercentage,
+			EscalationAmount:      property.EscalationAmount,
+			SecurityDeposit:       property.SecurityDeposit,
+			AgreementPeriod:       property.AgreementPeriod,
+			AgreementStartDate:    property.AgreementStartDate,
+			AgreementEndDate:      property.AgreementEndDate,
+			NoticePeriod:          property.NoticePeriod,
+			LockInPeriod:          property.LockInPeriod,
+			UnitCondition:         property.UnitCondition,
+			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
+			ProjectCondition:      property.ProjectCondition,
+			RentalStatus:          property.RentalStatus,
+			FurnishedChecklist:    property.FurnishedChecklist,
+			Images:                property.Images,
+			SpecificComments:      property.SpecificComments,
+			Tenants:               property.Tenants,
+			Buyers:                property.Buyers,
+			OwnerUID:              property.OwnerUID,
+			OwnerName:             property.OwnerName,
+			OwnerEmail:            property.OwnerEmail,
+			WantToSell:            property.WantToSell,
+			Status:                property.Status,
+			IsActive:              property.IsActive,
+			CreatedAt:             property.CreatedAt,
+			UpdatedAt:             property.UpdatedAt,
+			Bedrooms:              property.Bedrooms,
+			Bathrooms:             property.Bathrooms,
+			UserRole:              "owner", // Mark as owner
+		}
+	}
+
+	// Convert tenant properties to response format with "tenant" role
+	// If a property already exists (user is both owner and tenant), keep the "owner" role
+	for _, property := range tenantProperties {
+		if _, exists := propertyMap[property.ID]; !exists {
+			// Only add if not already in map (user is tenant only, not owner)
+			propertyMap[property.ID] = &models.PropertyResponse{
+				ID:                    property.ID,
+				Title:                 property.Title,
+				Description:           property.Description,
+				Price:                 property.Price,
+				Address:               property.Address,
+				City:                  property.City,
+				State:                 property.State,
+				ZipCode:               property.ZipCode,
+				PropertyType:          property.PropertyType,
+				ListingType:           property.ListingType,
+				Configuration:         property.Configuration,
+				UnitNumber:            property.UnitNumber,
+				Floor:                 property.Floor,
+				Location:              property.Location,
+				CarpetArea:            property.CarpetArea,
+				ConstructedArea:       property.ConstructedArea,
+				SquareFeet:            property.SquareFeet,
+				TenantName:            property.TenantName,
+				PersonName:            property.PersonName,
+				MobileNumber:          property.MobileNumber,
+				PrimaryNo:             property.PrimaryNo,
+				UltNo:                 property.UltNo,
+				MonthlyRent:           property.MonthlyRent,
+				SellingPrice:          property.SellingPrice,
+				MonthlyRent1stYear:    property.MonthlyRent1stYear,
+				MonthlyRent2ndYear:    property.MonthlyRent2ndYear,
+				MonthlyRent3rdYear:    property.MonthlyRent3rdYear,
+				MonthlyRent4thYear:    property.MonthlyRent4thYear,
+				RentFromDate1:         property.RentFromDate1,
+				RentToDate1:           property.RentToDate1,
+				RentFromDate2:         property.RentFromDate2,
+				RentToDate2:           property.RentToDate2,
+				PaymentDueDate:        property.PaymentDueDate,
+				EscalationPercentage:  property.EscalationPercentage,
+				EscalationAmount:      property.EscalationAmount,
+				SecurityDeposit:       property.SecurityDeposit,
+				AgreementPeriod:       property.AgreementPeriod,
+				AgreementStartDate:    property.AgreementStartDate,
+				AgreementEndDate:      property.AgreementEndDate,
+				NoticePeriod:          property.NoticePeriod,
+				LockInPeriod:          property.LockInPeriod,
+				UnitCondition:         property.UnitCondition,
+				MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
+				ProjectCondition:      property.ProjectCondition,
+				RentalStatus:          property.RentalStatus,
+				FurnishedChecklist:    property.FurnishedChecklist,
+				Images:                property.Images,
+				SpecificComments:      property.SpecificComments,
+				Tenants:               property.Tenants,
+				Buyers:                property.Buyers,
+				OwnerUID:              property.OwnerUID,
+				OwnerName:             property.OwnerName,
+				OwnerEmail:            property.OwnerEmail,
+				WantToSell:            property.WantToSell,
+				Status:                property.Status,
+				IsActive:              property.IsActive,
+				CreatedAt:             property.CreatedAt,
+				UpdatedAt:             property.UpdatedAt,
+				Bedrooms:              property.Bedrooms,
+				Bathrooms:             property.Bathrooms,
+				UserRole:              "tenant", // Mark as tenant
+			}
+		}
+	}
+
+	// Convert map to slice
+	var propertyResponses []models.PropertyResponse
+	for _, propertyResp := range propertyMap {
+		propertyResponses = append(propertyResponses, *propertyResp)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"properties": propertyResponses,
+		"count":      len(propertyResponses),
+		"ownerUID":   ownerUID,
+	})
+
+	log.Printf("✅ Sent %d properties (%d owned, %d tenant) to client for userUID: %s", len(propertyResponses), len(ownedProperties), len(tenantProperties), ownerUID)
+}
+
+func (h *PropertyHandler) GetArchivedPropertiesByOwner(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ownerUID := r.URL.Query().Get("ownerUID")
+	if ownerUID == "" {
+		http.Error(w, "ownerUID parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	properties, err := h.propertyService.GetArchivedPropertiesByOwner(r.Context(), ownerUID)
+	if err != nil {
+		log.Printf("❌ Failed to get archived properties by owner: %v", err)
+		http.Error(w, "Failed to get archived properties", http.StatusInternalServerError)
+		return
+	}
+	
+	log.Printf("🔍 Found %d archived properties for ownerUID: %s", len(properties), ownerUID)
+
 	// Convert to response format
 	var propertyResponses []models.PropertyResponse
 	for _, property := range properties {
 		propertyResponses = append(propertyResponses, models.PropertyResponse{
-			ID:           property.ID,
-			Title:        property.Title,
-			Description:  property.Description,
-			Price:        property.Price,
-			Address:      property.Address,
-			City:         property.City,
-			State:        property.State,
-			ZipCode:      property.ZipCode,
-			PropertyType: property.PropertyType,
-			ListingType:  property.ListingType,
-			Bedrooms:     property.Bedrooms,
-			Bathrooms:    property.Bathrooms,
-			SquareFeet:   property.SquareFeet,
-			Images:       property.Images,
-			Tenants:      property.Tenants,
-			Buyers:       property.Buyers,
-			OwnerUID:     property.OwnerUID,
-			OwnerName:    property.OwnerName,
-			OwnerEmail:   property.OwnerEmail,
-			IsActive:     property.IsActive,
-			CreatedAt:    property.CreatedAt,
-			UpdatedAt:    property.UpdatedAt,
+			ID:                    property.ID,
+			Title:                 property.Title,
+			Description:           property.Description,
+			Price:                 property.Price,
+			Address:               property.Address,
+			City:                  property.City,
+			State:                 property.State,
+			ZipCode:               property.ZipCode,
+			PropertyType:          property.PropertyType,
+			ListingType:           property.ListingType,
+			Configuration:         property.Configuration,
+			UnitNumber:            property.UnitNumber,
+			Floor:                 property.Floor,
+			Location:              property.Location,
+			CarpetArea:            property.CarpetArea,
+			ConstructedArea:       property.ConstructedArea,
+			SquareFeet:            property.SquareFeet,
+			TenantName:            property.TenantName,
+			PersonName:            property.PersonName,
+			MobileNumber:          property.MobileNumber,
+			PrimaryNo:             property.PrimaryNo,
+			UltNo:                 property.UltNo,
+			MonthlyRent:           property.MonthlyRent,
+			SellingPrice:          property.SellingPrice,
+			MonthlyRent1stYear:    property.MonthlyRent1stYear,
+			MonthlyRent2ndYear:    property.MonthlyRent2ndYear,
+			MonthlyRent3rdYear:    property.MonthlyRent3rdYear,
+			MonthlyRent4thYear:    property.MonthlyRent4thYear,
+			RentFromDate1:         property.RentFromDate1,
+			RentToDate1:           property.RentToDate1,
+			RentFromDate2:         property.RentFromDate2,
+			RentToDate2:           property.RentToDate2,
+			PaymentDueDate:        property.PaymentDueDate,
+			EscalationPercentage:  property.EscalationPercentage,
+			EscalationAmount:      property.EscalationAmount,
+			SecurityDeposit:       property.SecurityDeposit,
+			AgreementPeriod:       property.AgreementPeriod,
+			AgreementStartDate:    property.AgreementStartDate,
+			AgreementEndDate:      property.AgreementEndDate,
+			NoticePeriod:          property.NoticePeriod,
+			LockInPeriod:          property.LockInPeriod,
+			UnitCondition:         property.UnitCondition,
+			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
+			ProjectCondition:      property.ProjectCondition,
+			RentalStatus:          property.RentalStatus,
+			FurnishedChecklist:    property.FurnishedChecklist,
+			Images:                property.Images,
+			SpecificComments:      property.SpecificComments,
+			Tenants:               property.Tenants,
+			Buyers:                property.Buyers,
+			OwnerUID:              property.OwnerUID,
+			OwnerName:             property.OwnerName,
+			OwnerEmail:            property.OwnerEmail,
+			WantToSell:            property.WantToSell,
+			Status:                property.Status,
+			IsActive:              property.IsActive,
+			CreatedAt:             property.CreatedAt,
+			UpdatedAt:             property.UpdatedAt,
+			Bedrooms:              property.Bedrooms,
+			Bathrooms:             property.Bathrooms,
 		})
 	}
 
@@ -331,6 +646,8 @@ func (h *PropertyHandler) GetPropertiesByOwner(w http.ResponseWriter, r *http.Re
 		"count":      len(propertyResponses),
 		"ownerUID":   ownerUID,
 	})
+
+	log.Printf("📍 Retrieved %d archived properties for ownerUID: %s", len(propertyResponses), ownerUID)
 }
 
 func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request) {
@@ -403,13 +720,53 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 			continue
 		case "images":
 			updateData[key] = imageURLs // Use processed image URLs
+		case "status":
+			// Handle status field: "active" or "inactive"
+			// Keep status and isActive independent - do NOT sync
+			if statusStr, ok := value.(string); ok {
+				if statusStr == "active" || statusStr == "inactive" {
+					updateData[key] = statusStr
+					log.Printf("📝 Setting status to: '%s' for property %s (isActive unchanged)", statusStr, path)
+				} else {
+					log.Printf("⚠️  Invalid status value: '%s' (must be 'active' or 'inactive'), skipping", statusStr)
+				}
+			} else {
+				updateData[key] = value
+				log.Printf("📝 Using status value as-is: %v (type: %T) for property %s", value, value, path)
+			}
+		case "isActive":
+			// Ensure isActive is properly converted to boolean
+			// Keep status and isActive independent - do NOT sync
+			if boolVal, ok := value.(bool); ok {
+				updateData[key] = boolVal
+				log.Printf("📝 Setting isActive to: %v for property %s (status unchanged)", boolVal, path)
+			} else if strVal, ok := value.(string); ok {
+				// Handle string "true"/"false" from JSON
+				boolVal := (strVal == "true")
+				updateData[key] = boolVal
+				log.Printf("📝 Converting isActive string '%s' to bool: %v for property %s (status unchanged)", strVal, boolVal, path)
+			} else {
+				updateData[key] = value
+				log.Printf("📝 Using isActive value as-is: %v (type: %T) for property %s", value, value, path)
+			}
 		default:
 			updateData[key] = value
 		}
 	}
 
 	// Always update the timestamp
-	updateData["updatedAt"] = existingProperty.UpdatedAt
+	updateData["updatedAt"] = time.Now()
+
+	// Check if wantToSell is being toggled ON before updating (we need existing property for notification)
+	var wantToSellBeingSetToTrue bool = false
+	if wantToSell, hasWantToSell := updateData["wantToSell"]; hasWantToSell {
+		if wantToSellBool, ok := wantToSell.(bool); ok && wantToSellBool {
+			// Check if it's actually changing from false to true
+			if !existingProperty.WantToSell {
+				wantToSellBeingSetToTrue = true
+			}
+		}
+	}
 
 	// Update property in database
 	updatedProperty, err := h.propertyService.UpdateProperty(r.Context(), path, updateData)
@@ -419,7 +776,20 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	log.Printf("✅ Property updated successfully: %s by %s", updatedProperty.Title, updatedProperty.OwnerName)
+	// If tenants were updated, map property information to users with userUID
+	if tenants, hasTenants := updateData["tenants"]; hasTenants {
+		if tenantsArray, ok := tenants.([]interface{}); ok {
+			h.updateUsersWithRentedProperty(r.Context(), path, updatedProperty.OwnerUID, updatedProperty.OwnerName, tenantsArray)
+		}
+	}
+
+	// Handle "Want to Sell" toggle - create notification if toggled ON
+	if wantToSellBeingSetToTrue {
+		h.createWantToSellNotification(r.Context(), updatedProperty)
+	}
+
+	// Log the isActive status after update
+	log.Printf("✅ Property updated successfully: %s by %s (isActive: %v)", updatedProperty.Title, updatedProperty.OwnerName, updatedProperty.IsActive)
 
 	// Return success response
 	w.Header().Set("Content-Type", "application/json")
@@ -513,13 +883,15 @@ func (h *PropertyHandler) SearchProperties(w http.ResponseWriter, r *http.Reques
 			OwnerUID:         property.OwnerUID,
 			OwnerName:        property.OwnerName,
 			OwnerEmail:       property.OwnerEmail,
+			Status:           property.Status,
 			IsActive:         property.IsActive,
 			CreatedAt:        property.CreatedAt,
 			UpdatedAt:        property.UpdatedAt,
+			RentalStatus:     property.RentalStatus,
 		})
 	}
 
-	log.Printf("✅ Found %d properties matching search criteria", len(propertyResponses))
+	log.Printf("Found %d properties matching search criteria", len(propertyResponses))
 
 	response := map[string]interface{}{
 		"success":    true,
@@ -543,16 +915,93 @@ func parsePrice(priceStr string) (float64, error) {
 	cleanPrice = strings.ReplaceAll(cleanPrice, ",", "")
 	cleanPrice = strings.TrimSpace(cleanPrice)
 
-	// Try to parse as float
 	if cleanPrice == "" {
 		return 0, fmt.Errorf("empty price")
 	}
 
-	// Simple conversion - you might want to use strconv.ParseFloat for more robust parsing
 	var price float64
 	if _, err := fmt.Sscanf(cleanPrice, "%f", &price); err != nil {
 		return 0, err
 	}
 
 	return price, nil
+}
+
+// updateUsersWithRentedProperty updates users' records with rented property information when tenants are added
+func (h *PropertyHandler) updateUsersWithRentedProperty(ctx context.Context, propertyID, ownerUID, ownerName string, tenants []interface{}) {
+	for _, tenantInterface := range tenants {
+		tenantMap, ok := tenantInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		// Check if tenant has a userUID
+		userUID, hasUserUID := tenantMap["userUID"].(string)
+		if !hasUserUID || userUID == "" {
+			continue
+		}
+
+		// Update user with rented property information
+		user, err := h.userService.GetUserByID(ctx, userUID)
+		if err != nil {
+			log.Printf("⚠️  Warning: Failed to get user %s for property mapping: %v", userUID, err)
+			continue
+		}
+
+		// Update user with rented property information
+		user.RentedPropertyID = propertyID
+		user.RentedPropertyOwnerID = ownerUID
+		user.RentedPropertyOwnerName = ownerName
+		user.UpdatedAt = time.Now()
+
+		// Save updated user
+		err = h.userService.CreateOrUpdateUser(ctx, user)
+		if err != nil {
+			log.Printf("⚠️  Warning: Failed to update user %s with property info: %v", userUID, err)
+		} else {
+			log.Printf("✅ User %s updated with rented property: %s (Owner: %s)", userUID, propertyID, ownerName)
+		}
+	}
+}
+
+// createWantToSellNotification creates an admin notification when owner toggles "Want to Sell" ON
+func (h *PropertyHandler) createWantToSellNotification(ctx context.Context, property *models.Property) {
+	// Get owner details to include phone number
+	owner, err := h.userService.GetUserByID(ctx, property.OwnerUID)
+	if err != nil {
+		log.Printf("⚠️  Warning: Failed to get owner details for notification: %v", err)
+		// Continue without phone number
+	}
+
+	ownerPhone := ""
+	ownerEmail := property.OwnerEmail
+	if owner != nil {
+		ownerPhone = owner.PhoneNumber
+		if ownerEmail == "" {
+			ownerEmail = owner.Email
+		}
+	}
+
+	// Create notification request
+	notificationReq := models.CreateAdminNotificationRequest{
+		Type:       "want_to_sell",
+		Title:      "Property Owner Wants to Sell",
+		Message:    fmt.Sprintf("Property owner %s wants to sell property: %s", property.OwnerName, property.Title),
+		PropertyID: property.ID,
+		OwnerID:    property.OwnerUID,
+		OwnerName:  property.OwnerName,
+		OwnerPhone: ownerPhone,
+		OwnerEmail: ownerEmail,
+		Timestamp:  time.Now().Format(time.RFC3339),
+		IsRead:     false,
+		Priority:   "high",
+	}
+
+	// Create notification
+	_, err = h.adminNotificationService.CreateNotification(ctx, notificationReq)
+	if err != nil {
+		log.Printf("⚠️  Warning: Failed to create admin notification for want to sell: %v", err)
+	} else {
+		log.Printf("✅ Admin notification created for property %s (Owner wants to sell)", property.ID)
+	}
 }

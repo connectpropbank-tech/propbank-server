@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
 	"shoprop-backend/models"
 	"strings"
@@ -73,7 +74,17 @@ func (s *PropertyService) CreateProperty(ctx context.Context, property models.Pr
 
 	property.CreatedAt = time.Now()
 	property.UpdatedAt = time.Now()
-	property.IsActive = true
+	
+	// Set default status to "active" if not provided
+	if property.Status == "" {
+		property.Status = "active"
+	}
+	
+	// Set default isActive to true if not explicitly set (keep independent from status)
+	// Note: status and isActive are independent fields
+	if !property.IsActive {
+		property.IsActive = true // Default to true, but keep independent from status
+	}
 
 	// Set the property data
 	_, err := docRef.Set(ctx, property)
@@ -93,6 +104,18 @@ func (s *PropertyService) GetPropertyByID(ctx context.Context, id string) (*mode
 	var property models.Property
 	if err := doc.DataTo(&property); err != nil {
 		return nil, fmt.Errorf("failed to parse property data: %v", err)
+	}
+
+	// Set ID from document reference
+	property.ID = doc.Ref.ID
+
+	// Set default status if not set (for backward compatibility)
+	if property.Status == "" {
+		if property.IsActive {
+			property.Status = "active"
+		} else {
+			property.Status = "inactive"
+		}
 	}
 
 	return &property, nil
@@ -117,6 +140,19 @@ func (s *PropertyService) GetAllProperties(ctx context.Context) ([]models.Proper
 		if err := doc.DataTo(&property); err != nil {
 			continue // Skip invalid documents
 		}
+
+		// Set ID from document reference
+		property.ID = doc.Ref.ID
+
+		// Set default status if not set (for backward compatibility)
+		if property.Status == "" {
+			if property.IsActive {
+				property.Status = "active"
+			} else {
+				property.Status = "inactive"
+			}
+		}
+
 		properties = append(properties, property)
 	}
 
@@ -126,7 +162,117 @@ func (s *PropertyService) GetAllProperties(ctx context.Context) ([]models.Proper
 func (s *PropertyService) GetPropertiesByOwner(ctx context.Context, ownerUID string) ([]models.Property, error) {
 	var properties []models.Property
 
-	iter := s.client.Collection("properties").Where("ownerUID", "==", ownerUID).Where("isActive", "==", true).Documents(ctx)
+	// Query ONLY by ownerUID - return ALL properties for this owner (regardless of status)
+	// Client-side will filter based on status field
+	iter := s.client.Collection("properties").Where("ownerUID", "==", ownerUID).Documents(ctx)
+	defer iter.Stop()
+
+	log.Printf("🔍 Querying Firestore for ALL properties with ownerUID: %s", ownerUID)
+	
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Printf("❌ Error iterating properties: %v", err)
+			return nil, fmt.Errorf("failed to iterate properties: %v", err)
+		}
+
+		var property models.Property
+		if err := doc.DataTo(&property); err != nil {
+			log.Printf("⚠️  Skipping property document %s due to conversion error: %v", doc.Ref.ID, err)
+			continue // Skip invalid documents
+		}
+		
+		// Set ID from document reference
+		property.ID = doc.Ref.ID
+		
+		// Set default status to "active" if not set (for backward compatibility)
+		if property.Status == "" {
+			if property.IsActive {
+				property.Status = "active"
+			} else {
+				property.Status = "inactive"
+			}
+		}
+		
+		// Include ALL properties regardless of status
+		properties = append(properties, property)
+		log.Printf("✅ Added property: ID=%s, Title=%s, Status=%s", property.ID, property.Title, property.Status)
+	}
+	
+	log.Printf("📊 Found %d total properties for ownerUID: %s", len(properties), ownerUID)
+	
+	return properties, nil
+}
+
+// GetPropertiesByTenantUID gets all properties where the user is a tenant (via tenants array)
+func (s *PropertyService) GetPropertiesByTenantUID(ctx context.Context, tenantUID string) ([]models.Property, error) {
+	var properties []models.Property
+
+	// Since Firestore doesn't support querying nested array fields directly,
+	// we need to fetch all properties and filter in memory
+	// For better performance, we could maintain a separate index, but for now this will work
+	// Fetch ALL properties (similar to GetPropertiesByOwner) - client will filter by status
+	iter := s.client.Collection("properties").Documents(ctx)
+	defer iter.Stop()
+
+	log.Printf("🔍 Querying Firestore for properties where user is a tenant (tenantUID: %s)", tenantUID)
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Printf("❌ Error iterating properties: %v", err)
+			return nil, fmt.Errorf("failed to iterate properties: %v", err)
+		}
+
+		var property models.Property
+		if err := doc.DataTo(&property); err != nil {
+			log.Printf("⚠️  Skipping property document %s due to conversion error: %v", doc.Ref.ID, err)
+			continue
+		}
+
+		// Set ID from document reference
+		property.ID = doc.Ref.ID
+
+		// Check if any tenant has a matching userUID
+		isTenant := false
+		for _, tenant := range property.Tenants {
+			if tenant.UserUID == tenantUID && tenant.IsActive {
+				isTenant = true
+				break
+			}
+		}
+
+		// Only include if user is a tenant of this property
+		if isTenant {
+			// Set default status if not set (for backward compatibility)
+			if property.Status == "" {
+				if property.IsActive {
+					property.Status = "active"
+				} else {
+					property.Status = "inactive"
+				}
+			}
+			properties = append(properties, property)
+			log.Printf("✅ Added tenant property: ID=%s, Title=%s, Status=%s", property.ID, property.Title, property.Status)
+		}
+	}
+
+	log.Printf("📊 Found %d properties where user is a tenant (tenantUID: %s)", len(properties), tenantUID)
+
+	return properties, nil
+}
+
+func (s *PropertyService) GetArchivedPropertiesByOwner(ctx context.Context, ownerUID string) ([]models.Property, error) {
+	var properties []models.Property
+
+	// Query for all properties by ownerUID, then filter for archived ones (isActive == false)
+	iter := s.client.Collection("properties").Where("ownerUID", "==", ownerUID).Documents(ctx)
 	defer iter.Stop()
 
 	for {
@@ -135,16 +281,23 @@ func (s *PropertyService) GetPropertiesByOwner(ctx context.Context, ownerUID str
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to iterate properties: %v", err)
+			return nil, fmt.Errorf("failed to iterate archived properties: %v", err)
 		}
 
 		var property models.Property
 		if err := doc.DataTo(&property); err != nil {
 			continue // Skip invalid documents
 		}
-		properties = append(properties, property)
+		
+		// Filter for archived properties (isActive == false)
+		// Properties with isActive explicitly set to false should appear in archived
+		// Properties without isActive field or with isActive=true should not appear
+		if property.IsActive == false {
+			properties = append(properties, property)
+		}
 	}
 
+	log.Printf("🔍 GetArchivedPropertiesByOwner: Found %d archived properties for ownerUID: %s", len(properties), ownerUID)
 	return properties, nil
 }
 
@@ -167,6 +320,19 @@ func (s *PropertyService) GetPropertiesByListingType(ctx context.Context, listin
 		if err := doc.DataTo(&property); err != nil {
 			continue // Skip invalid documents
 		}
+
+		// Set ID from document reference
+		property.ID = doc.Ref.ID
+
+		// Set default status if not set (for backward compatibility)
+		if property.Status == "" {
+			if property.IsActive {
+				property.Status = "active"
+			} else {
+				property.Status = "inactive"
+			}
+		}
+
 		properties = append(properties, property)
 	}
 

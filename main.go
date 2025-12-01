@@ -1,14 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"shoprop-backend/config"
 	"shoprop-backend/handlers"
 	"strings"
-	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -44,16 +42,20 @@ func main() {
 	visitHandler := handlers.NewVisitHandler(config.GetFirestoreClient())
 	serviceHandler := handlers.NewServiceHandler(config.GetFirestoreClient())
 	adminNotificationHandler := handlers.NewAdminNotificationHandler(config.GetFirestoreClient())
-	inspectionReportHandler := handlers.NewInspectionReportHandler(config.GetFirestoreClient())
-	reviewHandler := handlers.NewReviewHandler(config.GetFirestoreClient())
-	documentHandler := handlers.NewDocumentHandler(config.GetFirestoreClient())
-	agreementHandler := handlers.NewAgreementHandler(config.GetFirestoreClient())
+	siteSettingsHandler := handlers.NewSiteSettingsHandler(config.GetFirestoreClient())
 
-	// Create a new mux to have better control over routing
-	mux := http.NewServeMux()
+	// Routes
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"message": "ShoPROP Backend API is running!", "status": "success"}`)
+	})
 
 	// Auth routes
-	mux.HandleFunc("/auth/user", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/auth/user", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -62,19 +64,7 @@ func main() {
 	})
 
 	// User routes
-	mux.HandleFunc("/users/search", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "GET" {
-			userHandler.SearchUserByPhone(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	mux.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -94,7 +84,7 @@ func main() {
 		}
 	})
 
-	mux.HandleFunc("/users/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/users/", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -103,7 +93,7 @@ func main() {
 	})
 
 	// Property routes
-	mux.HandleFunc("/properties", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/properties", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -123,7 +113,7 @@ func main() {
 	})
 
 	// Property search route
-	mux.HandleFunc("/properties/search", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/properties/search", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -135,7 +125,7 @@ func main() {
 		}
 	})
 
-	mux.HandleFunc("/properties/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/properties/", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -150,7 +140,7 @@ func main() {
 	})
 
 	// Visit routes
-	mux.HandleFunc("/visits", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/visits", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -169,7 +159,7 @@ func main() {
 		}
 	})
 
-	mux.HandleFunc("/visits/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/visits/", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -186,7 +176,7 @@ func main() {
 	})
 
 	// Service routes
-	mux.HandleFunc("/services", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/services", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -199,7 +189,7 @@ func main() {
 	})
 
 	// Admin route to populate services
-	mux.HandleFunc("/admin/populate-services", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/admin/populate-services", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -212,7 +202,7 @@ func main() {
 	})
 
 	// Service request routes
-	mux.HandleFunc("/service-requests", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/service-requests", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -226,7 +216,7 @@ func main() {
 		}
 	})
 
-	mux.HandleFunc("/service-requests/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/service-requests/", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -239,7 +229,7 @@ func main() {
 	})
 
 	// Admin notification routes
-	mux.HandleFunc("/admin/notifications", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/admin/notifications", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -253,7 +243,7 @@ func main() {
 		}
 	})
 
-	mux.HandleFunc("/admin/notifications/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/admin/notifications/", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -267,206 +257,36 @@ func main() {
 		}
 	})
 
-	// Inspection report routes
-	mux.HandleFunc("/inspection-reports", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "POST" {
-			inspectionReportHandler.CreateInspectionReport(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	mux.HandleFunc("/inspection-reports/property/", func(w http.ResponseWriter, r *http.Request) {
+	// Site Settings routes (for admin to update dynamic content)
+	http.HandleFunc("/admin/site-settings", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
 		}
 		if r.Method == "GET" {
-			inspectionReportHandler.GetInspectionReportsByProperty(w, r)
+			siteSettingsHandler.GetSiteSettings(w, r)
+		} else if r.Method == "PUT" || r.Method == "PATCH" {
+			siteSettingsHandler.UpdateSiteSettings(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
 
-	mux.HandleFunc("/inspection-reports/user/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/admin/site-settings/quote", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
 		}
-		if r.Method == "GET" {
-			inspectionReportHandler.GetInspectionReportsByUser(w, r)
+		if r.Method == "PUT" || r.Method == "PATCH" {
+			siteSettingsHandler.UpdateQuote(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
 
-	mux.HandleFunc("/inspection-reports/", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "GET" {
-			inspectionReportHandler.GetInspectionReportByID(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	// Review routes
-	mux.HandleFunc("/reviews", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "POST" {
-			reviewHandler.CreateReview(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	mux.HandleFunc("/reviews/property/", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "GET" {
-			reviewHandler.GetReviewsByProperty(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	mux.HandleFunc("/reviews/", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "GET" {
-			reviewHandler.GetReviewByID(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	// Document routes
-	mux.HandleFunc("/documents", func(w http.ResponseWriter, r *http.Request) {
-		// Add panic recovery
-		defer func() {
-			if err := recover(); err != nil {
-				log.Printf("❌ PANIC in /documents handler: %v", err)
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"success": false,
-					"message": "Internal server error: " + fmt.Sprintf("%v", err),
-				})
-			}
-		}()
-
-		log.Printf("📄 /documents route hit: Method=%s, Path=%s", r.Method, r.URL.Path)
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "POST" {
-			documentHandler.CreateDocument(w, r)
-		} else {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"success": false,
-				"message": "Method not allowed",
-			})
-		}
-	})
-
-	mux.HandleFunc("/documents/property/", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "GET" {
-			documentHandler.GetDocumentsByProperty(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	mux.HandleFunc("/documents/", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "GET" {
-			documentHandler.GetDocumentByID(w, r)
-		} else if r.Method == "DELETE" {
-			documentHandler.DeleteDocument(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	// Agreement routes - Register BEFORE root route to ensure proper matching
-	mux.HandleFunc("/agreements/renew", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("🔵 /agreements/renew route hit: Method=%s", r.Method)
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "POST" {
-			agreementHandler.RenewAgreement(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	mux.HandleFunc("/agreements/terminate", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("🔴 /agreements/terminate route MATCHED: Method=%s, Path=%s, URL=%s", r.Method, r.URL.Path, r.URL.String())
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			log.Printf("🔴 OPTIONS request handled")
-			return
-		}
-		if r.Method == "POST" {
-			log.Printf("🔴 Calling TerminateAgreement handler")
-			agreementHandler.TerminateAgreement(w, r)
-		} else {
-			log.Printf("🔴 Method not allowed: %s", r.Method)
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	// Root route - Register LAST and use exact match only
-	// Use a custom handler that only matches exact "/" path
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("🟢 Root route handler called: Method=%s, Path=%s", r.Method, r.URL.Path)
-
-		// CRITICAL: Only handle exact root path, return 404 for everything else
-		// This prevents the root route from catching other paths
-		if r.URL.Path != "/" {
-			log.Printf("🟡 Root route rejecting path: %s (not exact match)", r.URL.Path)
-			http.NotFound(w, r)
-			return
-		}
-
-		log.Printf("🟢 Root route processing exact match")
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"message": "ShoPROP Backend API is running!", "status": "success"}`)
-	})
-
-	// Note: Tenant management is handled via property updates
 	// Tenants are stored as arrays within property documents
 
-	log.Println("🚀 PropBank Backend Server starting on :8002")
+	log.Println("🚀 ShoPROP Backend Server starting on :8002")
 	log.Println("📍 API Endpoints:")
 	log.Println("   GET  /           - Health check")
 	log.Println("   POST /auth/user  - Create/Update user")
@@ -494,33 +314,12 @@ func main() {
 	log.Println("   GET  /admin/notifications?unread=true - Get unread admin notifications")
 	log.Println("   PUT  /admin/notifications/{id}/read - Mark notification as read")
 	log.Println("   DELETE /admin/notifications/{id} - Delete admin notification")
-	log.Println("   POST /agreements/renew - Renew agreement")
-	log.Println("   POST /agreements/terminate - Terminate agreement")
-	log.Println("   POST /documents - Upload document")
-	log.Println("   GET  /documents/property/{id} - Get documents by property")
-	log.Println("   POST /inspection-reports - Create inspection report")
-	log.Println("   POST /reviews - Create review")
+	log.Println("   GET  /admin/site-settings - Get site settings")
+	log.Println("   PUT  /admin/site-settings - Update site settings (admin)")
+	log.Println("   PUT  /admin/site-settings/quote - Update quote only (admin)")
 	log.Println("   📝 Note: Tenants managed via property updates (PUT /properties/{id})")
 
-	// Wrap mux with CORS middleware and logging
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("🌐 Incoming request: Method=%s, Path=%s, URL=%s, Content-Length=%s",
-			r.Method, r.URL.Path, r.URL.String(), r.Header.Get("Content-Length"))
-		enableCORS(w, r)
-		mux.ServeHTTP(w, r)
-	})
-
-	// Create server with longer timeouts for large file uploads (base64 encoded files can be large)
-	server := &http.Server{
-		Addr:           ":8002",
-		Handler:        handler,
-		ReadTimeout:    60 * time.Second, // 60 seconds to read request (for large uploads)
-		WriteTimeout:   60 * time.Second, // 60 seconds to write response
-		MaxHeaderBytes: 1 << 20,          // 1MB header limit
-	}
-
-	log.Println("✅ Server configured with 60s timeouts for large uploads")
-	if err := server.ListenAndServe(); err != nil {
+	if err := http.ListenAndServe(":8002", nil); err != nil {
 		log.Fatalf("❌ Could not start server: %s\n", err.Error())
 	}
 }

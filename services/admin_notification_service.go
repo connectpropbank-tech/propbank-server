@@ -60,11 +60,17 @@ func (s *AdminNotificationService) CreateNotification(ctx context.Context, req m
 		ServiceType:         req.ServiceType,
 		ServiceComment:      req.ServiceComment,
 		ServiceImage:        req.ServiceImage,
-		Timestamp:           timestamp,
-		IsRead:              req.IsRead,
-		Priority:            req.Priority,
-		CreatedAt:           now,
-		UpdatedAt:           now,
+		// General inquiry specific fields
+		InquiryType:  req.InquiryType,
+		PropertyType: req.PropertyType,
+		RequestVisit: req.RequestVisit,
+		VisitDate:    req.VisitDate,
+		VisitTime:    req.VisitTime,
+		Timestamp:    timestamp,
+		IsRead:       req.IsRead,
+		Priority:     req.Priority,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	// For property_enquiry, ensure all fields are explicitly set (even if empty)
@@ -74,6 +80,13 @@ func (s *AdminNotificationService) CreateNotification(ctx context.Context, req m
 		log.Printf("🔍 Property Enquiry - Setting fields: UserID='%s', UserName='%s', UserEmail='%s', UserPhone='%s', PropertyTitle='%s', PropertyAddress='%s', PropertyListingType='%s'",
 			notification.UserID, notification.UserName, notification.UserEmail, notification.UserPhone,
 			notification.PropertyTitle, notification.PropertyAddress, notification.PropertyListingType)
+	}
+
+	// For general_inquiry, log what we're saving
+	if req.Type == "general_inquiry" {
+		log.Printf("📝 General Inquiry - Setting fields: InquiryType='%s', PropertyType='%s', RequestVisit=%v, VisitDate='%s', VisitTime='%s', UserName='%s', UserEmail='%s', UserPhone='%s'",
+			notification.InquiryType, notification.PropertyType, notification.RequestVisit, notification.VisitDate, notification.VisitTime,
+			notification.UserName, notification.UserEmail, notification.UserPhone)
 	}
 
 	// Set default priority if not provided

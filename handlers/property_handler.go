@@ -16,10 +16,11 @@ import (
 )
 
 type PropertyHandler struct {
-	propertyService         *services.PropertyService
-	userService             *services.UserService
-	imageService            *services.ImageService
+	propertyService          *services.PropertyService
+	userService              *services.UserService
+	imageService             *services.ImageService
 	adminNotificationService *services.AdminNotificationService
+	siteSettingsService      *services.SiteSettingsService
 }
 
 func NewPropertyHandler(client *firestore.Client) *PropertyHandler {
@@ -32,6 +33,7 @@ func NewPropertyHandler(client *firestore.Client) *PropertyHandler {
 		userService:              services.NewUserService(client),
 		imageService:             services.NewImageService(storageClient, bucketName),
 		adminNotificationService: services.NewAdminNotificationService(client),
+		siteSettingsService:      services.NewSiteSettingsService(client),
 	}
 }
 
@@ -145,7 +147,7 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		OwnerUID:   req.OwnerUID,
 		OwnerName:  owner.Name,
 		OwnerEmail: owner.Email,
-		
+
 		// Status - set default to "active" if not provided
 		Status: "active", // Default status for new properties
 	}
@@ -327,6 +329,17 @@ func (h *PropertyHandler) GetAllProperties(w http.ResponseWriter, r *http.Reques
 		"success":    true,
 		"properties": propertyResponses,
 		"count":      len(propertyResponses),
+	}
+
+	// Get site settings for dynamic quote
+	siteSettings, err := h.siteSettingsService.GetSiteSettings(r.Context())
+	if err == nil && siteSettings != nil {
+		response["quote"] = siteSettings.Quote
+		response["quoteAuthor"] = siteSettings.QuoteAuthor
+		response["heroTitle"] = siteSettings.HeroTitle
+		response["heroSubtitle"] = siteSettings.HeroSubtitle
+		response["announcementText"] = siteSettings.AnnouncementText
+		response["isAnnouncementActive"] = siteSettings.IsAnnouncementActive
 	}
 
 	if listingType != "" {
@@ -569,7 +582,7 @@ func (h *PropertyHandler) GetArchivedPropertiesByOwner(w http.ResponseWriter, r 
 		http.Error(w, "Failed to get archived properties", http.StatusInternalServerError)
 		return
 	}
-	
+
 	log.Printf("🔍 Found %d archived properties for ownerUID: %s", len(properties), ownerUID)
 
 	// Convert to response format

@@ -17,13 +17,17 @@ import (
 
 // ServiceHandler handles service-related HTTP requests
 type ServiceHandler struct {
-	serviceService *services.ServiceService
+	serviceService           *services.ServiceService
+	r2Service                *services.R2StorageService
+	adminNotificationService *services.AdminNotificationService
 }
 
 // NewServiceHandler creates a new ServiceHandler
-func NewServiceHandler(client *firestore.Client) *ServiceHandler {
+func NewServiceHandler(client *firestore.Client, r2Service *services.R2StorageService) *ServiceHandler {
 	return &ServiceHandler{
-		serviceService: services.NewServiceService(client),
+		serviceService:           services.NewServiceService(client),
+		r2Service:                r2Service,
+		adminNotificationService: services.NewAdminNotificationService(client),
 	}
 }
 
@@ -71,6 +75,7 @@ func (sh *ServiceHandler) CreateServiceRequest(w http.ResponseWriter, r *http.Re
 		ServiceID  string `json:"serviceId"`
 		PropertyID string `json:"propertyId,omitempty"`
 		Message    string `json:"message"`
+		Image      string `json:"image,omitempty"` // Base64 image string
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
@@ -127,6 +132,20 @@ func (sh *ServiceHandler) CreateServiceRequest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Handle image upload if provided
+	var imageURL string
+	if reqBody.Image != "" {
+		requestID := uuid.New().String()
+		uploadedURL, err := sh.r2Service.UploadServiceRequestImage(ctx, reqBody.Image, requestID)
+		if err != nil {
+			log.Printf("⚠️  Warning: Failed to upload service request image: %v", err)
+			// Continue without image rather than failing the entire request
+		} else {
+			imageURL = uploadedURL
+			log.Printf("✅ Service request image uploaded: %s", imageURL)
+		}
+	}
+
 	// Create service request
 	serviceRequest := models.ServiceRequest{
 		ID:          uuid.New().String(),
@@ -138,6 +157,7 @@ func (sh *ServiceHandler) CreateServiceRequest(w http.ResponseWriter, r *http.Re
 		ServiceName: service.Name,
 		PropertyID:  reqBody.PropertyID,
 		Message:     reqBody.Message,
+		Image:       imageURL, // Store uploaded image URL
 		Status:      models.StatusPending,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
@@ -155,6 +175,9 @@ func (sh *ServiceHandler) CreateServiceRequest(w http.ResponseWriter, r *http.Re
 		json.NewEncoder(w).Encode(response)
 		return
 	}
+
+	// Create admin notification for the service request
+	sh.createServiceRequestNotification(ctx, &serviceRequest)
 
 	response := models.ServiceRequestResponse{
 		Success:        true,
@@ -430,4 +453,33 @@ func (sh *ServiceHandler) PopulateServices(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(response)
 
 	log.Printf("✅ Successfully created %d services in Firestore", len(services))
+}
+
+// createServiceRequestNotification creates an admin notification for a new service request
+func (sh *ServiceHandler) createServiceRequestNotification(ctx context.Context, serviceRequest *models.ServiceRequest) {
+	// Create notification request
+	notificationReq := models.CreateAdminNotificationRequest{
+		Type:           "service_request",
+		Title:          "New Service Request",
+		Message:        fmt.Sprintf("Service request from %s for %s", serviceRequest.UserName, serviceRequest.ServiceName),
+		PropertyID:     serviceRequest.PropertyID, // May be empty for non-property-specific services
+		UserID:         serviceRequest.UserUID,
+		UserName:       serviceRequest.UserName,
+		UserEmail:      serviceRequest.UserEmail,
+		UserPhone:      serviceRequest.UserPhone,
+		ServiceType:    serviceRequest.ServiceName,
+		ServiceComment: serviceRequest.Message,
+		ServiceImage:   serviceRequest.Image, // Include uploaded image URL
+		Timestamp:      time.Now().Format(time.RFC3339),
+		IsRead:         false,
+		Priority:       "medium",
+	}
+
+	// Create notification
+	_, err := sh.adminNotificationService.CreateNotification(ctx, notificationReq)
+	if err != nil {
+		log.Printf("⚠️  Warning: Failed to create admin notification for service request: %v", err)
+	} else {
+		log.Printf("✅ Admin notification created for service request %s", serviceRequest.ID)
+	}
 }

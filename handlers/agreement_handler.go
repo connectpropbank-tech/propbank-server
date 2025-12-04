@@ -130,6 +130,7 @@ func (h *AgreementHandler) RenewAgreement(w http.ResponseWriter, r *http.Request
 }
 
 // TerminateAgreement handles POST /agreements/terminate
+// This clears tenant data, marks property as available for rent, and notifies admin
 func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
@@ -160,7 +161,7 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Get property
+	// Get property BEFORE updating (to capture tenant details for notification)
 	property, err := h.propertyService.GetPropertyByID(ctx, req.PropertyID)
 	if err != nil {
 		log.Printf("Error fetching property: %v", err)
@@ -174,11 +175,54 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Update property: set agreementStatus to "terminated" and status to "inactive" (move to archive)
+	// Store tenant details before clearing (for notification)
+	tenantName := property.TenantName
+	tenantPhone := property.MobileNumber
+	tenantPersonName := property.PersonName
+	tenantUltNo := property.UltNo
+
+	// Also check Tenants array for more details
+	var tenantEmail string
+	var tenantDetails []string
+	if len(property.Tenants) > 0 {
+		for _, tenant := range property.Tenants {
+			if tenant.IsActive {
+				tenantName = tenant.FirstName + " " + tenant.LastName
+				tenantEmail = tenant.Email
+				tenantPhone = tenant.Phone
+				tenantDetails = append(tenantDetails, "- "+tenant.FirstName+" "+tenant.LastName+" ("+tenant.Email+", "+tenant.Phone+")")
+			}
+		}
+	}
+
+	// Update property:
+	// 1. Set agreementStatus to "terminated"
+	// 2. Set rentalStatus to "available" (NOT archive - keep it active for new tenants)
+	// 3. Clear all tenant information
+	// 4. Clear agreement dates
 	updateData := map[string]interface{}{
 		"agreementStatus": "terminated",
-		"status":          "inactive", // Move to archive
-		"updatedAt":       time.Now(),
+		"rentalStatus":    "available", // Mark as available for rent again
+		"status":          "active",    // Keep property active (not archived)
+
+		// Clear tenant information
+		"tenantName":   "",
+		"personName":   "",
+		"mobileNumber": "",
+		"primaryNo":    "",
+		"ultNo":        "",
+		"tenants":      []interface{}{}, // Clear tenants array
+
+		// Clear agreement dates (optional - you may want to keep these for history)
+		"agreementStartDate": "",
+		"agreementEndDate":   "",
+		"agreementPeriod":    "",
+
+		// Clear lease-related fields
+		"noticePeriod": "",
+		"lockInPeriod": "",
+
+		"updatedAt": time.Now(),
 	}
 
 	updatedProperty, err := h.propertyService.UpdateProperty(ctx, req.PropertyID, updateData)
@@ -192,28 +236,85 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 	owner, err := h.userService.GetUserByID(ctx, property.OwnerUID)
 	ownerName := property.OwnerName
 	ownerEmail := property.OwnerEmail
+	ownerPhone := property.PrimaryNo
 	if err == nil && owner != nil {
 		ownerName = owner.Name
 		ownerEmail = owner.Email
+		if owner.PhoneNumber != "" {
+			ownerPhone = owner.PhoneNumber
+		}
 	}
 
-	// Create admin notification
+	// Build comprehensive notification message with owner, tenant, and property details
+	notificationLines := []string{
+		"🔴 AGREEMENT TERMINATED",
+		"",
+		"📋 PROPERTY DETAILS:",
+		"  • Property: " + property.Title,
+		"  • Property ID: " + req.PropertyID,
+		"  • Type: " + property.PropertyType,
+		"  • Address: " + property.Location,
+		"  • Monthly Rent: ₹" + property.MonthlyRent,
+		"",
+		"👤 OWNER DETAILS:",
+		"  • Name: " + ownerName,
+		"  • Email: " + ownerEmail,
+		"  • Phone: " + ownerPhone,
+		"",
+		"🏠 TENANT DETAILS (Now Removed):",
+	}
+
+	if tenantName != "" {
+		notificationLines = append(notificationLines, "  • Name: "+tenantName)
+	}
+	if tenantEmail != "" {
+		notificationLines = append(notificationLines, "  • Email: "+tenantEmail)
+	}
+	if tenantPhone != "" {
+		notificationLines = append(notificationLines, "  • Phone: "+tenantPhone)
+	}
+	if tenantPersonName != "" {
+		notificationLines = append(notificationLines, "  • Contact Person: "+tenantPersonName)
+	}
+	if tenantUltNo != "" {
+		notificationLines = append(notificationLines, "  • Alt. Phone: "+tenantUltNo)
+	}
+	if len(tenantDetails) > 0 {
+		notificationLines = append(notificationLines, "  Additional Tenants:")
+		notificationLines = append(notificationLines, tenantDetails...)
+	}
+
+	notificationLines = append(notificationLines, "", "📅 AGREEMENT INFO:")
+	if property.AgreementStartDate != "" {
+		notificationLines = append(notificationLines, "  • Start Date: "+property.AgreementStartDate)
+	}
+	if property.AgreementEndDate != "" {
+		notificationLines = append(notificationLines, "  • End Date: "+property.AgreementEndDate)
+	}
+	if property.AgreementPeriod != "" {
+		notificationLines = append(notificationLines, "  • Period: "+property.AgreementPeriod+" months")
+	}
+	if property.SecurityDeposit != "" {
+		notificationLines = append(notificationLines, "  • Security Deposit: ₹"+property.SecurityDeposit)
+	}
+
+	notificationLines = append(notificationLines, "", "✅ Property is now marked as 'Available for Rent'")
+
+	// Create admin notification with full details
 	notificationReq := models.CreateAdminNotificationRequest{
-		Type:  "agreement_termination",
-		Title: "Agreement Terminated",
-		Message: strings.Join([]string{
-			ownerName + " has terminated the agreement for property: " + property.Title,
-			"Property ID: " + req.PropertyID,
-			"Owner: " + ownerName + " (" + ownerEmail + ")",
-			"Property has been moved to archive with status: agreement terminated",
-		}, "\n"),
+		Type:                "agreement_termination",
+		Title:               "Agreement Terminated - " + property.Title,
+		Message:             strings.Join(notificationLines, "\n"),
 		PropertyID:          req.PropertyID,
 		OwnerID:             property.OwnerUID,
-		OwnerName:           property.OwnerName,
-		OwnerPhone:          property.PrimaryNo,
-		OwnerEmail:          property.OwnerEmail,
+		OwnerName:           ownerName,
+		OwnerPhone:          ownerPhone,
+		OwnerEmail:          ownerEmail,
+		UserName:            tenantName, // Store tenant name in user fields
+		UserEmail:           tenantEmail,
+		UserPhone:           tenantPhone,
 		PropertyTitle:       property.Title,
-		PropertyAddress:     property.Address,
+		PropertyAddress:     property.Location,
 		PropertyListingType: property.ListingType,
 		Timestamp:           time.Now().Format(time.RFC3339),
 		IsRead:              false,
@@ -226,10 +327,12 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 		// Don't fail the request if notification fails
 	}
 
+	log.Printf("✅ Agreement terminated successfully for property %s. Tenant data cleared, property marked as available.", req.PropertyID)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":  true,
-		"message":  "Agreement terminated successfully. Property moved to archive. Admin has been notified.",
+		"message":  "Agreement terminated successfully. Tenant information has been removed and property is now available for rent. Admin has been notified.",
 		"property": updatedProperty,
 	})
 }

@@ -74,12 +74,12 @@ func (s *PropertyService) CreateProperty(ctx context.Context, property models.Pr
 
 	property.CreatedAt = time.Now()
 	property.UpdatedAt = time.Now()
-	
+
 	// Set default status to "active" if not provided
 	if property.Status == "" {
 		property.Status = "active"
 	}
-	
+
 	// Set default isActive to true if not explicitly set (keep independent from status)
 	// Note: status and isActive are independent fields
 	if !property.IsActive {
@@ -168,7 +168,7 @@ func (s *PropertyService) GetPropertiesByOwner(ctx context.Context, ownerUID str
 	defer iter.Stop()
 
 	log.Printf("🔍 Querying Firestore for ALL properties with ownerUID: %s", ownerUID)
-	
+
 	for {
 		doc, err := iter.Next()
 		if err == iterator.Done {
@@ -184,10 +184,10 @@ func (s *PropertyService) GetPropertiesByOwner(ctx context.Context, ownerUID str
 			log.Printf("⚠️  Skipping property document %s due to conversion error: %v", doc.Ref.ID, err)
 			continue // Skip invalid documents
 		}
-		
+
 		// Set ID from document reference
 		property.ID = doc.Ref.ID
-		
+
 		// Set default status to "active" if not set (for backward compatibility)
 		if property.Status == "" {
 			if property.IsActive {
@@ -196,14 +196,14 @@ func (s *PropertyService) GetPropertiesByOwner(ctx context.Context, ownerUID str
 				property.Status = "inactive"
 			}
 		}
-		
+
 		// Include ALL properties regardless of status
 		properties = append(properties, property)
 		log.Printf("✅ Added property: ID=%s, Title=%s, Status=%s", property.ID, property.Title, property.Status)
 	}
-	
+
 	log.Printf("📊 Found %d total properties for ownerUID: %s", len(properties), ownerUID)
-	
+
 	return properties, nil
 }
 
@@ -268,6 +268,65 @@ func (s *PropertyService) GetPropertiesByTenantUID(ctx context.Context, tenantUI
 	return properties, nil
 }
 
+// GetPropertiesByTenantEmail gets all properties where the user is a tenant (via tenants array email)
+func (s *PropertyService) GetPropertiesByTenantEmail(ctx context.Context, tenantEmail string) ([]models.Property, error) {
+	var properties []models.Property
+
+	// Since Firestore doesn't support querying nested array fields directly,
+	// we need to fetch all properties and filter in memory
+	iter := s.client.Collection("properties").Documents(ctx)
+	defer iter.Stop()
+
+	log.Printf("🔍 Querying Firestore for properties where user is a tenant (tenantEmail: %s)", tenantEmail)
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Printf("❌ Error iterating properties: %v", err)
+			return nil, fmt.Errorf("failed to iterate properties: %v", err)
+		}
+
+		var property models.Property
+		if err := doc.DataTo(&property); err != nil {
+			log.Printf("⚠️  Skipping property document %s due to conversion error: %v", doc.Ref.ID, err)
+			continue
+		}
+
+		// Set ID from document reference
+		property.ID = doc.Ref.ID
+
+		// Check if any tenant has a matching email (case-insensitive)
+		isTenant := false
+		for _, tenant := range property.Tenants {
+			if strings.EqualFold(tenant.Email, tenantEmail) && tenant.IsActive {
+				isTenant = true
+				break
+			}
+		}
+
+		// Only include if user is a tenant of this property
+		if isTenant {
+			// Set default status if not set (for backward compatibility)
+			if property.Status == "" {
+				if property.IsActive {
+					property.Status = "active"
+				} else {
+					property.Status = "inactive"
+				}
+			}
+			properties = append(properties, property)
+			log.Printf("✅ Added tenant property by email: ID=%s, Title=%s, Status=%s", property.ID, property.Title, property.Status)
+		}
+	}
+
+	log.Printf("📊 Found %d properties where user is a tenant (tenantEmail: %s)", len(properties), tenantEmail)
+
+	return properties, nil
+}
+
 func (s *PropertyService) GetArchivedPropertiesByOwner(ctx context.Context, ownerUID string) ([]models.Property, error) {
 	var properties []models.Property
 
@@ -288,7 +347,7 @@ func (s *PropertyService) GetArchivedPropertiesByOwner(ctx context.Context, owne
 		if err := doc.DataTo(&property); err != nil {
 			continue // Skip invalid documents
 		}
-		
+
 		// Filter for archived properties (isActive == false)
 		// Properties with isActive explicitly set to false should appear in archived
 		// Properties without isActive field or with isActive=true should not appear

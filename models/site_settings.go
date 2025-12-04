@@ -11,16 +11,18 @@ type SiteSettings struct {
 	HeroSubtitle         string    `json:"heroSubtitle,omitempty" firestore:"heroSubtitle,omitempty"`
 	AnnouncementText     string    `json:"announcementText,omitempty" firestore:"announcementText,omitempty"`
 	IsAnnouncementActive bool      `json:"isAnnouncementActive" firestore:"isAnnouncementActive"`
+	BannerImages         []string  `json:"bannerImages,omitempty" firestore:"bannerImages,omitempty"` // Multiple banner images for carousel
 	UpdatedAt            time.Time `json:"updatedAt" firestore:"updatedAt"`
 	UpdatedBy            string    `json:"updatedBy,omitempty" firestore:"updatedBy,omitempty"`
 }
 
 // SiteSettingsResponse is the response format for site settings
 type SiteSettingsResponse struct {
-	Quote                string `json:"quote"`
-	QuoteAuthor          string `json:"quoteAuthor,omitempty"`
-	HeroTitle            string `json:"heroTitle,omitempty"`
-	HeroSubtitle         string `json:"heroSubtitle,omitempty"`
-	AnnouncementText     string `json:"announcementText,omitempty"`
-	IsAnnouncementActive bool   `json:"isAnnouncementActive"`
+	Quote                string   `json:"quote"`
+	QuoteAuthor          string   `json:"quoteAuthor,omitempty"`
+	HeroTitle            string   `json:"heroTitle,omitempty"`
+	HeroSubtitle         string   `json:"heroSubtitle,omitempty"`
+	AnnouncementText     string   `json:"announcementText,omitempty"`
+	IsAnnouncementActive bool     `json:"isAnnouncementActive"`
+	BannerImages         []string `json:"bannerImages,omitempty"`
 }

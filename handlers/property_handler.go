@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"shoprop-backend/config"
@@ -43,10 +45,23 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Log the raw request body for debugging
+	bodyBytes, _ := io.ReadAll(r.Body)
+	log.Printf("📥 Raw request body (first 500 chars): %s", string(bodyBytes[:min(len(bodyBytes), 500)]))
+
+	// Reset body for parsing
+	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 	var req models.CreatePropertyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("❌ JSON decode error: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
+	}
+
+	log.Printf("📥 Parsed request - Images count: %d", len(req.Images))
+	if len(req.Images) > 0 {
+		log.Printf("📥 First image: %s", req.Images[0][:min(len(req.Images[0]), 100)])
 	}
 
 	// Validate required fields
@@ -66,16 +81,28 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 	// Generate unique property ID for image storage
 	propertyID := h.propertyService.GenerateID()
 
-	// Upload images to Firebase Storage
+	// Log received images for debugging
+	log.Printf("📷 Received %d images in request", len(req.Images))
+	for i, img := range req.Images {
+		if len(img) > 100 {
+			log.Printf("   Image %d: %s... (length: %d)", i+1, img[:100], len(img))
+		} else {
+			log.Printf("   Image %d: %s (length: %d)", i+1, img, len(img))
+		}
+	}
+
+	// Upload images to Firebase Storage (or keep R2 URLs as-is)
 	imageURLs := []string{}
 	if len(req.Images) > 0 {
-		log.Printf("📸 Uploading %d images to Firebase Storage...", len(req.Images))
+		log.Printf("📸 Processing %d images...", len(req.Images))
 		uploadedURLs, err := h.imageService.UploadPropertyImages(r.Context(), req.Images, propertyID)
 		if err != nil {
 			log.Printf("⚠️  Warning: Failed to upload some images: %v", err)
 		}
 		imageURLs = uploadedURLs
-		log.Printf("✅ Successfully uploaded %d images", len(imageURLs))
+		log.Printf("✅ Successfully processed %d images: %v", len(imageURLs), imageURLs)
+	} else {
+		log.Printf("⚠️  No images received in request")
 	}
 
 	// Create property object with comprehensive fields
@@ -340,6 +367,12 @@ func (h *PropertyHandler) GetAllProperties(w http.ResponseWriter, r *http.Reques
 		response["heroSubtitle"] = siteSettings.HeroSubtitle
 		response["announcementText"] = siteSettings.AnnouncementText
 		response["isAnnouncementActive"] = siteSettings.IsAnnouncementActive
+		// Always include bannerImages, even if empty
+		if siteSettings.BannerImages != nil {
+			response["bannerImages"] = siteSettings.BannerImages
+		} else {
+			response["bannerImages"] = []string{}
+		}
 	}
 
 	if listingType != "" {
@@ -564,6 +597,104 @@ func (h *PropertyHandler) GetPropertiesByOwner(w http.ResponseWriter, r *http.Re
 	log.Printf("✅ Sent %d properties (%d owned, %d tenant) to client for userUID: %s", len(propertyResponses), len(ownedProperties), len(tenantProperties), ownerUID)
 }
 
+// GetPropertiesByTenant gets all properties where the user is a tenant (using email)
+func (h *PropertyHandler) GetPropertiesByTenant(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userEmail := r.URL.Query().Get("userEmail")
+	if userEmail == "" {
+		http.Error(w, "userEmail parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	properties, err := h.propertyService.GetPropertiesByTenantEmail(r.Context(), userEmail)
+	if err != nil {
+		log.Printf("❌ Failed to get properties by tenant email: %v", err)
+		http.Error(w, "Failed to get properties", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("📦 Found %d properties where user is a tenant (email: %s)", len(properties), userEmail)
+
+	// Convert to response format
+	var propertyResponses []models.PropertyResponse
+	for _, property := range properties {
+		propertyResponses = append(propertyResponses, models.PropertyResponse{
+			ID:                    property.ID,
+			Title:                 property.Title,
+			Description:           property.Description,
+			Price:                 property.Price,
+			Address:               property.Address,
+			City:                  property.City,
+			State:                 property.State,
+			ZipCode:               property.ZipCode,
+			PropertyType:          property.PropertyType,
+			ListingType:           property.ListingType,
+			Configuration:         property.Configuration,
+			UnitNumber:            property.UnitNumber,
+			Floor:                 property.Floor,
+			Location:              property.Location,
+			CarpetArea:            property.CarpetArea,
+			ConstructedArea:       property.ConstructedArea,
+			SquareFeet:            property.SquareFeet,
+			TenantName:            property.TenantName,
+			PersonName:            property.PersonName,
+			MobileNumber:          property.MobileNumber,
+			PrimaryNo:             property.PrimaryNo,
+			UltNo:                 property.UltNo,
+			MonthlyRent:           property.MonthlyRent,
+			SellingPrice:          property.SellingPrice,
+			MonthlyRent1stYear:    property.MonthlyRent1stYear,
+			MonthlyRent2ndYear:    property.MonthlyRent2ndYear,
+			MonthlyRent3rdYear:    property.MonthlyRent3rdYear,
+			MonthlyRent4thYear:    property.MonthlyRent4thYear,
+			RentFromDate1:         property.RentFromDate1,
+			RentToDate1:           property.RentToDate1,
+			RentFromDate2:         property.RentFromDate2,
+			RentToDate2:           property.RentToDate2,
+			PaymentDueDate:        property.PaymentDueDate,
+			EscalationPercentage:  property.EscalationPercentage,
+			EscalationAmount:      property.EscalationAmount,
+			SecurityDeposit:       property.SecurityDeposit,
+			AgreementPeriod:       property.AgreementPeriod,
+			AgreementStartDate:    property.AgreementStartDate,
+			AgreementEndDate:      property.AgreementEndDate,
+			NoticePeriod:          property.NoticePeriod,
+			LockInPeriod:          property.LockInPeriod,
+			UnitCondition:         property.UnitCondition,
+			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
+			ProjectCondition:      property.ProjectCondition,
+			RentalStatus:          property.RentalStatus,
+			FurnishedChecklist:    property.FurnishedChecklist,
+			Images:                property.Images,
+			SpecificComments:      property.SpecificComments,
+			Tenants:               property.Tenants,
+			Buyers:                property.Buyers,
+			OwnerUID:              property.OwnerUID,
+			OwnerName:             property.OwnerName,
+			OwnerEmail:            property.OwnerEmail,
+			WantToSell:            property.WantToSell,
+			Status:                property.Status,
+			IsActive:              property.IsActive,
+			CreatedAt:             property.CreatedAt,
+			UpdatedAt:             property.UpdatedAt,
+			Bedrooms:              property.Bedrooms,
+			Bathrooms:             property.Bathrooms,
+			UserRole:              "tenant",
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"properties": propertyResponses,
+		"count":      len(propertyResponses),
+	})
+}
+
 func (h *PropertyHandler) GetArchivedPropertiesByOwner(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -770,13 +901,20 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 	// Always update the timestamp
 	updateData["updatedAt"] = time.Now()
 
-	// Check if wantToSell is being toggled ON before updating (we need existing property for notification)
+	// Check if wantToSell is being toggled ON or OFF before updating (we need existing property for notification)
 	var wantToSellBeingSetToTrue bool = false
+	var wantToSellBeingSetToFalse bool = false
 	if wantToSell, hasWantToSell := updateData["wantToSell"]; hasWantToSell {
-		if wantToSellBool, ok := wantToSell.(bool); ok && wantToSellBool {
-			// Check if it's actually changing from false to true
-			if !existingProperty.WantToSell {
+		log.Printf("🔍 wantToSell update detected: new value = %v, existing value = %v", wantToSell, existingProperty.WantToSell)
+		if wantToSellBool, ok := wantToSell.(bool); ok {
+			if wantToSellBool && !existingProperty.WantToSell {
+				// Changing from false to true
 				wantToSellBeingSetToTrue = true
+				log.Printf("📢 wantToSell being SET TO TRUE (will notify admin)")
+			} else if !wantToSellBool && existingProperty.WantToSell {
+				// Changing from true to false (cancelled)
+				wantToSellBeingSetToFalse = true
+				log.Printf("📢 wantToSell being SET TO FALSE (will notify admin of cancellation)")
 			}
 		}
 	}
@@ -799,6 +937,11 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 	// Handle "Want to Sell" toggle - create notification if toggled ON
 	if wantToSellBeingSetToTrue {
 		h.createWantToSellNotification(r.Context(), updatedProperty)
+	}
+
+	// Handle "Want to Sell" toggle OFF - create notification if cancelled
+	if wantToSellBeingSetToFalse {
+		h.createWantToSellCancelledNotification(r.Context(), updatedProperty)
 	}
 
 	// Log the isActive status after update
@@ -1016,5 +1159,47 @@ func (h *PropertyHandler) createWantToSellNotification(ctx context.Context, prop
 		log.Printf("⚠️  Warning: Failed to create admin notification for want to sell: %v", err)
 	} else {
 		log.Printf("✅ Admin notification created for property %s (Owner wants to sell)", property.ID)
+	}
+}
+
+// createWantToSellCancelledNotification creates an admin notification when owner cancels/toggles OFF "Want to Sell"
+func (h *PropertyHandler) createWantToSellCancelledNotification(ctx context.Context, property *models.Property) {
+	// Get owner details to include phone number
+	owner, err := h.userService.GetUserByID(ctx, property.OwnerUID)
+	if err != nil {
+		log.Printf("⚠️  Warning: Failed to get owner details for notification: %v", err)
+		// Continue without phone number
+	}
+
+	ownerPhone := ""
+	ownerEmail := property.OwnerEmail
+	if owner != nil {
+		ownerPhone = owner.PhoneNumber
+		if ownerEmail == "" {
+			ownerEmail = owner.Email
+		}
+	}
+
+	// Create notification request
+	notificationReq := models.CreateAdminNotificationRequest{
+		Type:       "want_to_sell_cancelled",
+		Title:      "Property Owner Cancelled Sell Request",
+		Message:    fmt.Sprintf("Property owner %s has cancelled the request to sell property: %s", property.OwnerName, property.Title),
+		PropertyID: property.ID,
+		OwnerID:    property.OwnerUID,
+		OwnerName:  property.OwnerName,
+		OwnerPhone: ownerPhone,
+		OwnerEmail: ownerEmail,
+		Timestamp:  time.Now().Format(time.RFC3339),
+		IsRead:     false,
+		Priority:   "medium",
+	}
+
+	// Create notification
+	_, err = h.adminNotificationService.CreateNotification(ctx, notificationReq)
+	if err != nil {
+		log.Printf("⚠️  Warning: Failed to create admin notification for want to sell cancelled: %v", err)
+	} else {
+		log.Printf("✅ Admin notification created for property %s (Owner cancelled sell request)", property.ID)
 	}
 }

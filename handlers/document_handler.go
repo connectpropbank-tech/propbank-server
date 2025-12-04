@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"shoprop-backend/config"
 	"shoprop-backend/models"
 	"shoprop-backend/services"
 
@@ -15,22 +14,18 @@ import (
 )
 
 type DocumentHandler struct {
-	service                *services.DocumentService
-	documentStorageService *services.DocumentStorageService
-	propertyService        *services.PropertyService
-	userService            *services.UserService
+	service         *services.DocumentService
+	r2Service       *services.R2StorageService
+	propertyService *services.PropertyService
+	userService     *services.UserService
 }
 
-func NewDocumentHandler(client *firestore.Client) *DocumentHandler {
-	// Initialize document storage service with Firebase Storage
-	storageClient := config.GetStorageClient()
-	bucketName := config.GetStorageBucket()
-
+func NewDocumentHandler(client *firestore.Client, r2Service *services.R2StorageService) *DocumentHandler {
 	return &DocumentHandler{
-		service:                services.NewDocumentService(client),
-		documentStorageService: services.NewDocumentStorageService(storageClient, bucketName),
-		propertyService:        services.NewPropertyService(client),
-		userService:            services.NewUserService(client),
+		service:         services.NewDocumentService(client),
+		r2Service:       r2Service,
+		propertyService: services.NewPropertyService(client),
+		userService:     services.NewUserService(client),
 	}
 }
 
@@ -151,24 +146,22 @@ func (h *DocumentHandler) CreateDocument(w http.ResponseWriter, r *http.Request)
 
 	log.Printf("📄 Property found: %s", property.Title)
 
-	// Check if fileUrl is already a Storage URL or base64
+	// Check if fileUrl is already a URL or base64
 	var storageURL string
-	if strings.HasPrefix(req.FileURL, "https://storage.googleapis.com/") {
-		// Already a Storage URL, use it directly
+	if strings.HasPrefix(req.FileURL, "https://") {
+		// Already a URL, use it directly
 		storageURL = req.FileURL
-		log.Printf("📄 File is already a Storage URL, using directly")
+		log.Printf("📄 File is already a URL, using directly")
 	} else {
-		// Upload base64 file to Firebase Storage
-		log.Printf("📄 Uploading file to Firebase Storage...")
-		uploadedURL, err := h.documentStorageService.UploadDocument(
-			ctx,
+		// Upload base64 file to Cloudflare R2
+		log.Printf("📄 Uploading file to Cloudflare R2...")
+		uploadedURL, err := h.r2Service.UploadBase64Document(
 			req.FileURL,
-			req.PropertyID,
-			req.DocumentName,
-			req.DocumentType,
+			"documents",
+			req.PropertyID+"-"+req.DocumentName,
 		)
 		if err != nil {
-			log.Printf("❌ Error uploading file to Storage: %v", err)
+			log.Printf("❌ Error uploading file to R2: %v", err)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]interface{}{
@@ -178,7 +171,7 @@ func (h *DocumentHandler) CreateDocument(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		storageURL = uploadedURL
-		log.Printf("✅ File uploaded to Storage: %s", storageURL)
+		log.Printf("✅ File uploaded to R2: %s", storageURL)
 	}
 
 	// Update request with Storage URL instead of base64
@@ -317,14 +310,14 @@ func (h *DocumentHandler) DeleteDocument(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Delete from Storage if it's a Storage URL
-	if strings.HasPrefix(document.FileURL, "https://storage.googleapis.com/") {
-		log.Printf("🗑️  Deleting document from Storage: %s", document.FileURL)
-		if err := h.documentStorageService.DeleteDocument(ctx, document.FileURL); err != nil {
-			log.Printf("⚠️  Warning: Failed to delete document from Storage: %v", err)
-			// Continue to delete from Firestore even if Storage deletion fails
+	// Delete from Storage if it's a URL (R2 or Firebase Storage)
+	if strings.HasPrefix(document.FileURL, "https://") {
+		log.Printf("🗑️  Deleting document from storage: %s", document.FileURL)
+		if err := h.r2Service.DeleteFile(context.Background(), document.FileURL); err != nil {
+			log.Printf("⚠️  Warning: Failed to delete document from storage: %v", err)
+			// Continue to delete from Firestore even if storage deletion fails
 		} else {
-			log.Printf("✅ Document deleted from Storage successfully")
+			log.Printf("✅ Document deleted from storage successfully")
 		}
 	}
 

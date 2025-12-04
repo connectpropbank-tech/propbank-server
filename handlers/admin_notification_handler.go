@@ -48,7 +48,7 @@ func (h *AdminNotificationHandler) CreateAdminNotification(w http.ResponseWriter
 			log.Printf("⚠️  Warning: Failed to fetch property details: %v. Using provided values.", err)
 		} else {
 			log.Printf("✅ Fetched property: Title=%s, Address=%s, ListingType=%s", property.Title, property.Address, property.ListingType)
-			
+
 			// Override with actual property data from database (prioritize database values)
 			if property.Title != "" {
 				req.PropertyTitle = property.Title
@@ -62,7 +62,7 @@ func (h *AdminNotificationHandler) CreateAdminNotification(w http.ResponseWriter
 			if property.ListingType != "" {
 				req.PropertyListingType = property.ListingType
 			}
-			
+
 			// Also update owner details if available
 			if property.OwnerName != "" && req.OwnerName == "" {
 				req.OwnerName = property.OwnerName
@@ -106,9 +106,16 @@ func (h *AdminNotificationHandler) GetAdminNotifications(w http.ResponseWriter, 
 	// Check if requesting only unread notifications
 	unreadOnly := r.URL.Query().Get("unread") == "true"
 
+	// Check if requesting notifications for a specific property
+	propertyID := r.URL.Query().Get("propertyId")
+
 	var err error
 
-	if unreadOnly {
+	if propertyID != "" {
+		// Get notifications for specific property
+		notifications, err = h.service.GetNotificationsByPropertyID(ctx, propertyID)
+		log.Printf("🔍 GetNotificationsByPropertyID(%s) returned %d notifications, error: %v", propertyID, len(notifications), err)
+	} else if unreadOnly {
 		notifications, err = h.service.GetUnreadNotifications(ctx)
 		log.Printf("🔍 GetUnreadNotifications returned %d notifications, error: %v", len(notifications), err)
 	} else {
@@ -145,7 +152,7 @@ func (h *AdminNotificationHandler) GetAdminNotifications(w http.ResponseWriter, 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
+
 	// Encode the array - this should never be null
 	if encodeErr := json.NewEncoder(w).Encode(notifications); encodeErr != nil {
 		log.Printf("❌ Error encoding notifications: %v", encodeErr)

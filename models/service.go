@@ -43,6 +43,7 @@ type ServiceRequest struct {
 	ServiceName string        `json:"serviceName" firestore:"serviceName"`
 	PropertyID  string        `json:"propertyId,omitempty" firestore:"propertyId,omitempty"`
 	Message     string        `json:"message" firestore:"message"`
+	Image       string        `json:"image,omitempty" firestore:"image,omitempty"` // Image URL for service request
 	Status      ServiceStatus `json:"status" firestore:"status"`
 	AdminNotes  string        `json:"adminNotes,omitempty" firestore:"adminNotes,omitempty"`
 	CreatedAt   time.Time     `json:"createdAt" firestore:"createdAt"`

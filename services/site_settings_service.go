@@ -36,6 +36,7 @@ func (s *SiteSettingsService) GetSiteSettings(ctx context.Context) (*models.Site
 			HeroSubtitle:         "Manage, list your properties and find your dream house— all in one platform",
 			AnnouncementText:     "",
 			IsAnnouncementActive: false,
+			BannerImages:         []string{}, // Empty array for banner images
 			UpdatedAt:            time.Now(),
 		}, nil
 	}

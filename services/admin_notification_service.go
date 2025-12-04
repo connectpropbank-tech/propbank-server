@@ -253,3 +253,48 @@ func (s *AdminNotificationService) DeleteNotification(ctx context.Context, notif
 	log.Printf("Notification %s deleted successfully", notificationID)
 	return nil
 }
+
+// GetNotificationsByPropertyID retrieves all admin notifications for a specific property
+func (s *AdminNotificationService) GetNotificationsByPropertyID(ctx context.Context, propertyID string) ([]models.AdminNotification, error) {
+	collection := s.client.Collection("admin_notifications")
+
+	// Initialize as empty slice to avoid nil
+	notifications := []models.AdminNotification{}
+
+	// Query notifications by propertyId
+	iter := collection.Where("propertyId", "==", propertyID).Documents(ctx)
+	defer iter.Stop()
+
+	for {
+		doc, err := iter.Next()
+		if err != nil {
+			if err == iterator.Done {
+				log.Printf("✅ Finished iterating notifications for property %s, found %d", propertyID, len(notifications))
+				break
+			}
+			log.Printf("❌ Error iterating notifications for property %s: %v", propertyID, err)
+			return notifications, nil
+		}
+
+		var notification models.AdminNotification
+		if err := doc.DataTo(&notification); err != nil {
+			log.Printf("Error parsing notification: %v", err)
+			continue
+		}
+
+		// Set ID from document ID
+		notification.ID = doc.Ref.ID
+		notifications = append(notifications, notification)
+	}
+
+	// Sort by timestamp in memory (newest first)
+	for i := 0; i < len(notifications)-1; i++ {
+		for j := i + 1; j < len(notifications); j++ {
+			if notifications[i].Timestamp.Before(notifications[j].Timestamp) {
+				notifications[i], notifications[j] = notifications[j], notifications[i]
+			}
+		}
+	}
+
+	return notifications, nil
+}

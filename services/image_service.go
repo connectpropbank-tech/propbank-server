@@ -23,6 +23,7 @@ func NewImageService(client *storage.Client, bucketName string) *ImageService {
 }
 
 // UploadPropertyImages uploads base64 images to Firebase Storage and returns download URLs
+// If the image is already a URL (from R2 or other cloud storage), it keeps the URL as-is
 func (s *ImageService) UploadPropertyImages(ctx context.Context, images []string, propertyID string) ([]string, error) {
 	if len(images) == 0 {
 		return []string{}, nil
@@ -30,14 +31,22 @@ func (s *ImageService) UploadPropertyImages(ctx context.Context, images []string
 
 	var imageURLs []string
 
-	for i, base64Image := range images {
+	for i, image := range images {
 		// Skip empty images
-		if base64Image == "" {
+		if image == "" {
 			continue
 		}
 
-		// Parse base64 data
-		imageData, contentType, err := s.parseBase64Image(base64Image)
+		// Check if this is already a URL (from R2 or other cloud storage)
+		if strings.HasPrefix(image, "http://") || strings.HasPrefix(image, "https://") {
+			// Already a URL, keep it as-is
+			imageURLs = append(imageURLs, image)
+			fmt.Printf("✅ Using existing URL for image %d: %s\n", i+1, image)
+			continue
+		}
+
+		// It's a base64 image, parse and upload to Firebase Storage
+		imageData, contentType, err := s.parseBase64Image(image)
 		if err != nil {
 			fmt.Printf("❌ Failed to parse image %d: %v\n", i+1, err)
 			continue

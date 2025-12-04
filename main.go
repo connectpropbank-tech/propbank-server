@@ -35,14 +35,28 @@ func main() {
 	// Initialize Firebase
 	config.InitFirebase()
 
+	// Initialize upload handler (Cloudflare R2)
+	uploadHandler, err := handlers.NewUploadHandler()
+	if err != nil {
+		log.Fatalf("Failed to initialize upload handler: %v", err)
+	}
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(config.GetFirestoreClient())
 	authHandler := handlers.NewAuthHandler(config.GetFirestoreClient())
 	propertyHandler := handlers.NewPropertyHandler(config.GetFirestoreClient())
 	visitHandler := handlers.NewVisitHandler(config.GetFirestoreClient())
-	serviceHandler := handlers.NewServiceHandler(config.GetFirestoreClient())
+	serviceHandler := handlers.NewServiceHandler(config.GetFirestoreClient(), uploadHandler.GetR2Service())
 	adminNotificationHandler := handlers.NewAdminNotificationHandler(config.GetFirestoreClient())
 	siteSettingsHandler := handlers.NewSiteSettingsHandler(config.GetFirestoreClient())
+	agreementHandler := handlers.NewAgreementHandler(config.GetFirestoreClient())
+	documentHandler := handlers.NewDocumentHandler(config.GetFirestoreClient(), uploadHandler.GetR2Service())
+	if err != nil {
+		log.Printf("⚠️ Warning: Failed to initialize upload handler: %v", err)
+		log.Println("📁 File uploads will use Firebase Storage as fallback")
+	} else {
+		log.Println("✅ Cloudflare R2 Upload Handler initialized")
+	}
 
 	// Routes
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -84,6 +98,19 @@ func main() {
 		}
 	})
 
+	// User search route - must be before /users/ to match correctly
+	http.HandleFunc("/users/search", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "GET" {
+			userHandler.SearchUserByPhone(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	http.HandleFunc("/users/", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
@@ -112,8 +139,8 @@ func main() {
 		}
 	})
 
-	// Property search route
-	http.HandleFunc("/properties/search", func(w http.ResponseWriter, r *http.Request) {
+	// Property search route - use trailing slash to ensure proper matching
+	http.HandleFunc("/properties/search/", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
@@ -125,15 +152,69 @@ func main() {
 		}
 	})
 
-	http.HandleFunc("/properties/", func(w http.ResponseWriter, r *http.Request) {
+	// Get properties where user is a tenant - use trailing slash to ensure proper matching
+	http.HandleFunc("/properties/tenant/", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
 			return
 		}
 		if r.Method == "GET" {
+			propertyHandler.GetPropertiesByTenant(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	http.HandleFunc("/properties/", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+
+		// Skip if this is the /properties/tenant or /properties/search route
+		// These are handled by their own handlers
+		path := r.URL.Path
+		if strings.HasPrefix(path, "/properties/tenant") || strings.HasPrefix(path, "/properties/search") {
+			// Forward to the correct handler
+			if strings.HasPrefix(path, "/properties/tenant") {
+				propertyHandler.GetPropertiesByTenant(w, r)
+				return
+			}
+			if strings.HasPrefix(path, "/properties/search") {
+				propertyHandler.SearchProperties(w, r)
+				return
+			}
+		}
+
+		if r.Method == "GET" {
 			propertyHandler.GetProperty(w, r)
 		} else if r.Method == "PUT" || r.Method == "PATCH" {
 			propertyHandler.UpdateProperty(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Agreement routes - must be registered before other routes that might match
+	http.HandleFunc("/agreements/terminate", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "POST" {
+			agreementHandler.TerminateAgreement(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	http.HandleFunc("/agreements/renew", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "POST" {
+			agreementHandler.RenewAgreement(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -284,7 +365,131 @@ func main() {
 		}
 	})
 
+	// Document routes
+	http.HandleFunc("/documents", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "POST" {
+			documentHandler.CreateDocument(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	http.HandleFunc("/documents/property/", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "GET" {
+			documentHandler.GetDocumentsByProperty(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	http.HandleFunc("/documents/", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		// Extract path after /documents/
+		path := strings.TrimPrefix(r.URL.Path, "/documents/")
+		if path == "" {
+			http.Error(w, "Document ID required", http.StatusBadRequest)
+			return
+		}
+		// Skip if it's a property request (handled by /documents/property/)
+		if strings.HasPrefix(path, "property/") {
+			return
+		}
+		if r.Method == "GET" {
+			documentHandler.GetDocumentByID(w, r)
+		} else if r.Method == "DELETE" {
+			documentHandler.DeleteDocument(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// Tenants are stored as arrays within property documents
+
+	// Upload routes (Cloudflare R2)
+	if uploadHandler != nil {
+		http.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
+			enableCORS(w, r)
+			if r.Method == "OPTIONS" {
+				return
+			}
+			if r.Method == "POST" {
+				uploadHandler.UploadImage(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+
+		http.HandleFunc("/upload/image", func(w http.ResponseWriter, r *http.Request) {
+			enableCORS(w, r)
+			if r.Method == "OPTIONS" {
+				return
+			}
+			if r.Method == "POST" {
+				uploadHandler.UploadBase64Image(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+
+		http.HandleFunc("/upload/document", func(w http.ResponseWriter, r *http.Request) {
+			enableCORS(w, r)
+			if r.Method == "OPTIONS" {
+				return
+			}
+			if r.Method == "POST" {
+				uploadHandler.UploadDocument(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+
+		http.HandleFunc("/upload/property-images", func(w http.ResponseWriter, r *http.Request) {
+			enableCORS(w, r)
+			if r.Method == "OPTIONS" {
+				return
+			}
+			if r.Method == "POST" {
+				uploadHandler.UploadPropertyImages(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+
+		http.HandleFunc("/upload/service-request-image", func(w http.ResponseWriter, r *http.Request) {
+			enableCORS(w, r)
+			if r.Method == "OPTIONS" {
+				return
+			}
+			if r.Method == "POST" {
+				uploadHandler.UploadServiceRequestImage(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+
+		http.HandleFunc("/files/", func(w http.ResponseWriter, r *http.Request) {
+			enableCORS(w, r)
+			if r.Method == "OPTIONS" {
+				return
+			}
+			if r.Method == "DELETE" {
+				uploadHandler.DeleteFile(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+	}
 
 	log.Println("🚀 ShoPROP Backend Server starting on :8002")
 	log.Println("📍 API Endpoints:")
@@ -296,9 +501,12 @@ func main() {
 	log.Println("   POST /properties - Create property")
 	log.Println("   GET  /properties - Get all properties")
 	log.Println("   GET  /properties?ownerUID={uid} - Get properties by owner")
+	log.Println("   GET  /properties/tenant?userEmail={email} - Get properties where user is tenant")
 	log.Println("   GET  /properties/search?q={query}&listingType={type}&projectCondition={condition} - Search properties")
 	log.Println("   GET  /properties/{id} - Get property by ID")
 	log.Println("   PUT/PATCH  /properties/{id} - Update property")
+	log.Println("   POST /agreements/terminate - Terminate agreement and clear tenant data")
+	log.Println("   POST /agreements/renew - Renew agreement")
 	log.Println("   POST /visits     - Create visit")
 	log.Println("   GET  /visits?userId={uid} - Get visits by user")
 	log.Println("   GET  /visits/{id} - Get visit by ID")
@@ -317,6 +525,12 @@ func main() {
 	log.Println("   GET  /admin/site-settings - Get site settings")
 	log.Println("   PUT  /admin/site-settings - Update site settings (admin)")
 	log.Println("   PUT  /admin/site-settings/quote - Update quote only (admin)")
+	log.Println("   POST /upload - Upload image file to Cloudflare R2")
+	log.Println("   POST /upload/image - Upload base64 image to Cloudflare R2")
+	log.Println("   POST /upload/document - Upload document to Cloudflare R2")
+	log.Println("   POST /upload/property-images - Upload property images to Cloudflare R2")
+	log.Println("   POST /upload/service-request-image - Upload service request image to Cloudflare R2")
+	log.Println("   DELETE /files/{key} - Delete file from Cloudflare R2")
 	log.Println("   📝 Note: Tenants managed via property updates (PUT /properties/{id})")
 
 	if err := http.ListenAndServe(":8002", nil); err != nil {

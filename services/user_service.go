@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
 	"shoprop-backend/models"
 
 	"cloud.google.com/go/firestore"
@@ -35,13 +34,11 @@ func (us *UserService) GetAllUsers(ctx context.Context) ([]models.User, error) {
 			break
 		}
 		if err != nil {
-			log.Printf("Error iterating users: %v", err)
 			return nil, err
 		}
 
 		var user models.User
 		if err := doc.DataTo(&user); err != nil {
-			log.Printf("Error converting document to user: %v", err)
 			continue
 		}
 
@@ -86,8 +83,7 @@ func (us *UserService) CreateOrUpdateUser(ctx context.Context, user *models.User
 func (us *UserService) GetUserByPhoneNumber(ctx context.Context, phoneNumber string) (*models.User, error) {
 	// Normalize phone number (remove spaces, dashes, etc.)
 	normalizedPhone := normalizePhoneNumber(phoneNumber)
-	log.Printf("🔍 Searching for user with normalized phone: %s (original: %s)", normalizedPhone, phoneNumber)
-	
+
 	// Search for user by phone number
 	iter := us.client.Collection("users").Where("phoneNumber", "==", normalizedPhone).Documents(ctx)
 	defer iter.Stop()
@@ -95,14 +91,11 @@ func (us *UserService) GetUserByPhoneNumber(ctx context.Context, phoneNumber str
 	// Get first matching user
 	doc, err := iter.Next()
 	if err == iterator.Done {
-		log.Printf("❌ No user found with phone number: %s (normalized: %s)", phoneNumber, normalizedPhone)
 		return nil, fmt.Errorf("user not found with phone number: %s", phoneNumber)
 	}
 	if err != nil {
-		log.Printf("❌ Error searching for user by phone %s: %v", normalizedPhone, err)
 		return nil, fmt.Errorf("failed to search user by phone: %v", err)
 	}
-	log.Printf("✅ Found user with phone %s", normalizedPhone)
 
 	var user models.User
 	if err := doc.DataTo(&user); err != nil {

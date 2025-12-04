@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -46,7 +45,6 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 
 	var req models.CreateReviewRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Error decoding request: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -60,7 +58,6 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 	// Get reviewer (user) details
 	reviewer, err := h.userService.GetUserByID(ctx, userID)
 	if err != nil {
-		log.Printf("Error fetching reviewer: %v", err)
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
@@ -68,7 +65,6 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 	// Get property details
 	property, err := h.propertyService.GetPropertyByID(ctx, req.PropertyID)
 	if err != nil {
-		log.Printf("Error fetching property: %v", err)
 		http.Error(w, "Property not found", http.StatusNotFound)
 		return
 	}
@@ -76,7 +72,6 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 	// Get owner details (optional - continue even if not found)
 	_, err = h.userService.GetUserByID(ctx, property.OwnerUID)
 	if err != nil {
-		log.Printf("Error fetching owner: %v", err)
 		// Continue even if owner not found
 	}
 
@@ -104,7 +99,6 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 		tenantName,
 	)
 	if err != nil {
-		log.Printf("Error creating review: %v", err)
 		http.Error(w, "Failed to create review", http.StatusInternalServerError)
 		return
 	}
@@ -137,7 +131,6 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 
 	_, err = h.adminNotificationService.CreateNotification(ctx, notificationReq)
 	if err != nil {
-		log.Printf("Error creating admin notification for review: %v", err)
 		// Don't fail the request if notification fails
 	}
 
@@ -165,7 +158,6 @@ func (h *ReviewHandler) GetReviewByID(w http.ResponseWriter, r *http.Request) {
 
 	review, err := h.service.GetReviewByID(ctx, reviewID)
 	if err != nil {
-		log.Printf("Error fetching review: %v", err)
 		http.Error(w, "Review not found", http.StatusNotFound)
 		return
 	}
@@ -192,7 +184,6 @@ func (h *ReviewHandler) GetReviewsByProperty(w http.ResponseWriter, r *http.Requ
 
 	reviews, err := h.service.GetReviewsByPropertyID(ctx, propertyID)
 	if err != nil {
-		log.Printf("Error fetching reviews: %v", err)
 		http.Error(w, "Failed to fetch reviews", http.StatusInternalServerError)
 		return
 	}

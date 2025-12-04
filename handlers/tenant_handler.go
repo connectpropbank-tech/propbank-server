@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -42,7 +41,6 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		log.Printf("❌ Error decoding tenant data: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
@@ -69,7 +67,6 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	propertyRef := h.client.Collection("properties").Doc(requestData.PropertyID)
 	propertyDoc, err := propertyRef.Get(ctx)
 	if err != nil {
-		log.Printf("❌ Property %s not found: %v", requestData.PropertyID, err)
 		http.Error(w, "Property not found", http.StatusNotFound)
 		return
 	}
@@ -77,7 +74,6 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	// Get property details for user mapping
 	var property models.Property
 	if err := propertyDoc.DataTo(&property); err != nil {
-		log.Printf("❌ Error reading property data: %v", err)
 		http.Error(w, "Failed to read property data", http.StatusInternalServerError)
 		return
 	}
@@ -85,7 +81,6 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	// Get current tenants array from property (if any)
 	var propertyData map[string]interface{}
 	if err := propertyDoc.DataTo(&propertyData); err != nil {
-		log.Printf("❌ Error reading property data: %v", err)
 		http.Error(w, "Failed to read property data", http.StatusInternalServerError)
 		return
 	}
@@ -124,7 +119,6 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		// Save to separate tenants collection (for detailed management)
 		_, err := docRef.Set(ctx, tenant)
 		if err != nil {
-			log.Printf("❌ Failed to create tenant %s %s: %v", tenant.FirstName, tenant.LastName, err)
 			http.Error(w, fmt.Sprintf("Failed to create tenant %s %s", tenant.FirstName, tenant.LastName), http.StatusInternalServerError)
 			return
 		}
@@ -170,16 +164,13 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		}
 
 		newTenantInfos = append(newTenantInfos, tenantInfo)
-		log.Printf("✅ Tenant created successfully: %s %s for property %s", tenant.FirstName, tenant.LastName, tenant.PropertyID)
 
 		// If tenant has a userUID (platform user), update user with property information
 		if tenant.UserUID != "" {
 			err := h.updateUserRentedProperty(ctx, tenant.UserUID, requestData.PropertyID, property.OwnerUID, property.OwnerName)
 			if err != nil {
-				log.Printf("⚠️  Warning: Failed to update user %s with property info: %v", tenant.UserUID, err)
 				// Don't fail the tenant creation if user update fails
 			} else {
-				log.Printf("✅ User %s updated with rented property: %s (Owner: %s)", tenant.UserUID, requestData.PropertyID, property.OwnerName)
 			}
 		}
 	}
@@ -192,12 +183,9 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		{Path: "updatedAt", Value: time.Now()},
 	})
 	if err != nil {
-		log.Printf("❌ Failed to update property with tenant info: %v", err)
 		http.Error(w, "Failed to add tenants to property", http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("✅ Property %s updated with %d new tenant(s)", requestData.PropertyID, len(newTenantInfos))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -234,14 +222,11 @@ func (h *TenantHandler) GetTenantsByProperty(w http.ResponseWriter, r *http.Requ
 
 		var tenant models.Tenant
 		if err := doc.DataTo(&tenant); err != nil {
-			log.Printf("❌ Error converting tenant document: %v", err)
 			continue
 		}
 
 		tenants = append(tenants, tenant)
 	}
-
-	log.Printf("📍 Getting tenants for property %s, found %d tenants", propertyID, len(tenants))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -268,14 +253,12 @@ func (h *TenantHandler) GetTenant(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	doc, err := h.client.Collection("tenants").Doc(tenantID).Get(ctx)
 	if err != nil {
-		log.Printf("❌ Failed to get tenant %s: %v", tenantID, err)
 		http.Error(w, "Tenant not found", http.StatusNotFound)
 		return
 	}
 
 	var tenant models.Tenant
 	if err := doc.DataTo(&tenant); err != nil {
-		log.Printf("❌ Error converting tenant document: %v", err)
 		http.Error(w, "Failed to parse tenant data", http.StatusInternalServerError)
 		return
 	}
@@ -304,7 +287,6 @@ func (h *TenantHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 
 	var updates map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
-		log.Printf("❌ Error decoding update data: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
@@ -324,18 +306,14 @@ func (h *TenantHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 				{Path: key, Value: value},
 			})
 			if err != nil {
-				log.Printf("❌ Failed to update tenant field %s: %v", key, err)
 			}
 		}
 	}
 
 	if err != nil {
-		log.Printf("❌ Failed to update tenant %s: %v", tenantID, err)
 		http.Error(w, "Failed to update tenant", http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("✅ Tenant %s updated successfully", tenantID)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -366,12 +344,9 @@ func (h *TenantHandler) DeleteTenant(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		log.Printf("❌ Failed to delete tenant %s: %v", tenantID, err)
 		http.Error(w, "Failed to delete tenant", http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("✅ Tenant %s deleted successfully", tenantID)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"shoprop-backend/models"
 	"time"
 
@@ -28,9 +27,6 @@ func (s *DocumentService) CreateDocument(ctx context.Context, req *models.Create
 	// Generate ID
 	id := uuid.New().String()
 
-	log.Printf("📄 Creating document: ID=%s, Name=%s, PropertyID=%s, FileURL length=%d",
-		id, req.DocumentName, req.PropertyID, len(req.FileURL))
-
 	now := time.Now()
 	document := &models.Document{
 		ID:            id,
@@ -46,15 +42,12 @@ func (s *DocumentService) CreateDocument(ctx context.Context, req *models.Create
 		UpdatedAt:     now,
 	}
 
-	log.Printf("📄 Saving document to Firestore...")
 	// Save to Firestore
 	_, err := s.client.Collection("documents").Doc(id).Set(ctx, document)
 	if err != nil {
-		log.Printf("❌ Failed to save document to Firestore: %v", err)
 		return nil, fmt.Errorf("failed to create document: %w", err)
 	}
 
-	log.Printf("✅ Document saved successfully to Firestore: %s", id)
 	return document, nil
 }
 
@@ -76,7 +69,6 @@ func (s *DocumentService) GetDocumentsByPropertyID(ctx context.Context, property
 
 		var document models.Document
 		if err := doc.DataTo(&document); err != nil {
-			log.Printf("Warning: failed to parse document %s: %v", doc.Ref.ID, err)
 			continue // Skip invalid documents instead of failing
 		}
 

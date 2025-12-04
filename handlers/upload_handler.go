@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"shoprop-backend/services"
 	"strings"
@@ -79,7 +78,6 @@ func (h *UploadHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	url, err := h.r2Service.UploadFile(ctx, file, header, folder)
 	if err != nil {
-		log.Printf("❌ Failed to upload image: %v", err)
 		sendUploadResponse(w, false, "Failed to upload image: "+err.Error(), "", nil)
 		return
 	}
@@ -133,7 +131,6 @@ func (h *UploadHandler) UploadDocument(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	url, err := h.r2Service.UploadDocument(ctx, file, header, propertyID, docType)
 	if err != nil {
-		log.Printf("❌ Failed to upload document: %v", err)
 		sendUploadResponse(w, false, "Failed to upload document: "+err.Error(), "", nil)
 		return
 	}
@@ -176,7 +173,6 @@ func (h *UploadHandler) UploadBase64Image(w http.ResponseWriter, r *http.Request
 	ctx := context.Background()
 	url, err := h.r2Service.UploadBase64Image(ctx, reqBody.Image, reqBody.Folder, reqBody.Identifier)
 	if err != nil {
-		log.Printf("❌ Failed to upload base64 image: %v", err)
 		sendUploadResponse(w, false, "Failed to upload image: "+err.Error(), "", nil)
 		return
 	}
@@ -215,7 +211,6 @@ func (h *UploadHandler) UploadPropertyImages(w http.ResponseWriter, r *http.Requ
 	ctx := context.Background()
 	urls, err := h.r2Service.UploadPropertyImages(ctx, reqBody.Images, reqBody.PropertyID)
 	if err != nil {
-		log.Printf("❌ Failed to upload property images: %v", err)
 		sendUploadResponse(w, false, "Failed to upload images: "+err.Error(), "", nil)
 		return
 	}
@@ -253,7 +248,6 @@ func (h *UploadHandler) UploadServiceRequestImage(w http.ResponseWriter, r *http
 	ctx := context.Background()
 	url, err := h.r2Service.UploadServiceRequestImage(ctx, reqBody.Image, reqBody.RequestID)
 	if err != nil {
-		log.Printf("❌ Failed to upload service request image: %v", err)
 		sendUploadResponse(w, false, "Failed to upload image: "+err.Error(), "", nil)
 		return
 	}
@@ -286,7 +280,6 @@ func (h *UploadHandler) DeleteFile(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	err := h.r2Service.DeleteFile(ctx, reqBody.URL)
 	if err != nil {
-		log.Printf("❌ Failed to delete file: %v", err)
 		sendUploadResponse(w, false, "Failed to delete file: "+err.Error(), "", nil)
 		return
 	}

@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"shoprop-backend/models"
@@ -31,7 +30,6 @@ func (s *AdminNotificationService) CreateNotification(ctx context.Context, req m
 	// Parse timestamp
 	timestamp, err := time.Parse(time.RFC3339, req.Timestamp)
 	if err != nil {
-		log.Printf("Error parsing timestamp: %v", err)
 		timestamp = time.Now()
 	}
 
@@ -76,17 +74,12 @@ func (s *AdminNotificationService) CreateNotification(ctx context.Context, req m
 	// For property_enquiry, ensure all fields are explicitly set (even if empty)
 	// This ensures they are saved to Firestore even with omitempty tags
 	if req.Type == "property_enquiry" {
-		// Log what we're about to save
-		log.Printf("🔍 Property Enquiry - Setting fields: UserID='%s', UserName='%s', UserEmail='%s', UserPhone='%s', PropertyTitle='%s', PropertyAddress='%s', PropertyListingType='%s'",
-			notification.UserID, notification.UserName, notification.UserEmail, notification.UserPhone,
-			notification.PropertyTitle, notification.PropertyAddress, notification.PropertyListingType)
+		// Fields are set in notification struct
 	}
 
 	// For general_inquiry, log what we're saving
 	if req.Type == "general_inquiry" {
-		log.Printf("📝 General Inquiry - Setting fields: InquiryType='%s', PropertyType='%s', RequestVisit=%v, VisitDate='%s', VisitTime='%s', UserName='%s', UserEmail='%s', UserPhone='%s'",
-			notification.InquiryType, notification.PropertyType, notification.RequestVisit, notification.VisitDate, notification.VisitTime,
-			notification.UserName, notification.UserEmail, notification.UserPhone)
+		// Fields are set in notification struct
 	}
 
 	// Set default priority if not provided
@@ -98,16 +91,14 @@ func (s *AdminNotificationService) CreateNotification(ctx context.Context, req m
 	// Set() will save all fields in the struct, even empty strings
 	_, err = collection.Doc(notificationID).Set(ctx, notification)
 	if err != nil {
-		log.Printf("Error creating admin notification: %v", err)
 		return nil, err
 	}
 
 	// Debug: Log what was saved to Firestore
 	if notification.Type == "property_enquiry" {
-		log.Printf("✅ Saved Property Enquiry Notification to Firestore - ID: %s, UserID: %s, UserName: %s, UserEmail: %s, UserPhone: %s, PropertyTitle: %s, PropertyAddress: %s, PropertyListingType: %s",
-			notificationID, notification.UserID, notification.UserName, notification.UserEmail, notification.UserPhone, notification.PropertyTitle, notification.PropertyAddress, notification.PropertyListingType)
+		// notification saved successfully
 	} else {
-		log.Printf("Admin notification created successfully with ID: %s", notificationID)
+		// notification saved successfully
 	}
 	return &notification, nil
 }
@@ -128,24 +119,16 @@ func (s *AdminNotificationService) GetAllNotifications(ctx context.Context) ([]m
 			if err == iterator.Done {
 				break
 			}
-			log.Printf("Error iterating notifications: %v", err)
 			break
 		}
 
 		var notification models.AdminNotification
 		if err := doc.DataTo(&notification); err != nil {
-			log.Printf("Error parsing notification: %v", err)
 			continue
 		}
 
 		// Set ID from document ID (important for proper identification)
 		notification.ID = doc.Ref.ID
-
-		// Debug: Log notification data for property_enquiry type
-		if notification.Type == "property_enquiry" {
-			log.Printf("🔍 Retrieved Property Enquiry Notification - ID: %s, UserID: %s, UserName: %s, UserEmail: %s, UserPhone: %s, PropertyTitle: %s, PropertyAddress: %s, PropertyListingType: %s",
-				notification.ID, notification.UserID, notification.UserName, notification.UserEmail, notification.UserPhone, notification.PropertyTitle, notification.PropertyAddress, notification.PropertyListingType)
-		}
 
 		notifications = append(notifications, notification)
 	}
@@ -175,29 +158,20 @@ func (s *AdminNotificationService) GetUnreadNotifications(ctx context.Context) (
 		if err != nil {
 			// Check if it's iterator.Done (no more documents) or actual error
 			if err == iterator.Done {
-				log.Printf("✅ Finished iterating unread notifications, found %d", len(notifications))
 				break
 			}
 			// Log error but return empty array instead of failing
-			log.Printf("❌ Error iterating unread notifications: %v", err)
 			// Return the notifications we've collected so far (might be empty, but not nil)
 			return notifications, nil
 		}
 
 		var notification models.AdminNotification
 		if err := doc.DataTo(&notification); err != nil {
-			log.Printf("Error parsing notification: %v", err)
 			continue
 		}
 
 		// Set ID from document ID (important for proper identification)
 		notification.ID = doc.Ref.ID
-
-		// Debug: Log notification data for property_enquiry type
-		if notification.Type == "property_enquiry" {
-			log.Printf("🔍 Retrieved Unread Property Enquiry Notification - ID: %s, UserID: %s, UserName: %s, UserEmail: %s, UserPhone: %s, PropertyTitle: %s, PropertyAddress: %s, PropertyListingType: %s",
-				notification.ID, notification.UserID, notification.UserName, notification.UserEmail, notification.UserPhone, notification.PropertyTitle, notification.PropertyAddress, notification.PropertyListingType)
-		}
 
 		notifications = append(notifications, notification)
 	}
@@ -237,11 +211,9 @@ func (s *AdminNotificationService) MarkAsRead(ctx context.Context, notificationI
 	})
 
 	if err != nil {
-		log.Printf("Error marking notification as read: %v", err)
 		return err
 	}
 
-	log.Printf("Notification %s marked as read", notificationID)
 	return nil
 }
 
@@ -251,11 +223,9 @@ func (s *AdminNotificationService) DeleteNotification(ctx context.Context, notif
 
 	_, err := collection.Doc(notificationID).Delete(ctx)
 	if err != nil {
-		log.Printf("Error deleting notification: %v", err)
 		return err
 	}
 
-	log.Printf("Notification %s deleted successfully", notificationID)
 	return nil
 }
 
@@ -274,16 +244,13 @@ func (s *AdminNotificationService) GetNotificationsByPropertyID(ctx context.Cont
 		doc, err := iter.Next()
 		if err != nil {
 			if err == iterator.Done {
-				log.Printf("✅ Finished iterating notifications for property %s, found %d", propertyID, len(notifications))
 				break
 			}
-			log.Printf("❌ Error iterating notifications for property %s: %v", propertyID, err)
 			return notifications, nil
 		}
 
 		var notification models.AdminNotification
 		if err := doc.DataTo(&notification); err != nil {
-			log.Printf("Error parsing notification: %v", err)
 			continue
 		}
 

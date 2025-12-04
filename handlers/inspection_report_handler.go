@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -46,7 +45,6 @@ func (h *InspectionReportHandler) CreateInspectionReport(w http.ResponseWriter, 
 
 	var req models.CreateInspectionReportRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Error decoding request: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -60,7 +58,6 @@ func (h *InspectionReportHandler) CreateInspectionReport(w http.ResponseWriter, 
 	// Get user details
 	user, err := h.userService.GetUserByID(ctx, userID)
 	if err != nil {
-		log.Printf("Error fetching user: %v", err)
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
@@ -68,7 +65,6 @@ func (h *InspectionReportHandler) CreateInspectionReport(w http.ResponseWriter, 
 	// Get property details
 	property, err := h.propertyService.GetPropertyByID(ctx, req.PropertyID)
 	if err != nil {
-		log.Printf("Error fetching property: %v", err)
 		http.Error(w, "Property not found", http.StatusNotFound)
 		return
 	}
@@ -84,7 +80,6 @@ func (h *InspectionReportHandler) CreateInspectionReport(w http.ResponseWriter, 
 		property.Title,
 	)
 	if err != nil {
-		log.Printf("Error creating inspection report: %v", err)
 		http.Error(w, "Failed to create inspection report", http.StatusInternalServerError)
 		return
 	}
@@ -117,7 +112,6 @@ func (h *InspectionReportHandler) CreateInspectionReport(w http.ResponseWriter, 
 
 	_, err = h.adminNotificationService.CreateNotification(ctx, notificationReq)
 	if err != nil {
-		log.Printf("Error creating admin notification for inspection report: %v", err)
 		// Don't fail the request if notification fails
 	}
 
@@ -145,7 +139,6 @@ func (h *InspectionReportHandler) GetInspectionReportsByProperty(w http.Response
 
 	reports, err := h.service.GetInspectionReportsByPropertyID(ctx, propertyID)
 	if err != nil {
-		log.Printf("Error fetching inspection reports: %v", err)
 		http.Error(w, "Failed to fetch inspection reports", http.StatusInternalServerError)
 		return
 	}
@@ -172,7 +165,6 @@ func (h *InspectionReportHandler) GetInspectionReportsByUser(w http.ResponseWrit
 
 	reports, err := h.service.GetInspectionReportsByUserID(ctx, userID)
 	if err != nil {
-		log.Printf("Error fetching inspection reports: %v", err)
 		http.Error(w, "Failed to fetch inspection reports", http.StatusInternalServerError)
 		return
 	}
@@ -199,7 +191,6 @@ func (h *InspectionReportHandler) GetInspectionReportByID(w http.ResponseWriter,
 
 	report, err := h.service.GetInspectionReportByID(ctx, reportID)
 	if err != nil {
-		log.Printf("Error fetching inspection report: %v", err)
 		http.Error(w, "Inspection report not found", http.StatusNotFound)
 		return
 	}

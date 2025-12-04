@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -62,8 +61,6 @@ func NewR2StorageService() (*R2StorageService, error) {
 	// Create S3 client for R2
 	client := s3.NewFromConfig(cfg)
 
-	log.Printf("✅ Cloudflare R2 Storage Service initialized - Bucket: %s", bucketName)
-
 	return &R2StorageService{
 		client:     client,
 		bucketName: bucketName,
@@ -101,7 +98,6 @@ func (s *R2StorageService) UploadFile(ctx context.Context, file multipart.File, 
 
 	// Generate public URL
 	publicURL := s.getPublicURL(filename)
-	log.Printf("✅ Uploaded file to R2: %s", publicURL)
 
 	return publicURL, nil
 }
@@ -132,7 +128,6 @@ func (s *R2StorageService) UploadBase64Image(ctx context.Context, base64Image st
 
 	// Generate public URL
 	publicURL := s.getPublicURL(filename)
-	log.Printf("✅ Uploaded base64 image to R2: %s", publicURL)
 
 	return publicURL, nil
 }
@@ -160,7 +155,6 @@ func (s *R2StorageService) UploadPropertyImages(ctx context.Context, images []st
 		identifier := fmt.Sprintf("image_%d", i+1)
 		url, err := s.UploadBase64Image(ctx, base64Image, folder, identifier)
 		if err != nil {
-			log.Printf("❌ Failed to upload image %d: %v", i+1, err)
 			continue
 		}
 
@@ -222,7 +216,6 @@ func (s *R2StorageService) DeleteFile(ctx context.Context, fileURL string) error
 		return fmt.Errorf("failed to delete from R2: %v", err)
 	}
 
-	log.Printf("🗑️ Deleted file from R2: %s", key)
 	return nil
 }
 

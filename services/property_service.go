@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"shoprop-backend/models"
 	"strings"
@@ -167,21 +166,17 @@ func (s *PropertyService) GetPropertiesByOwner(ctx context.Context, ownerUID str
 	iter := s.client.Collection("properties").Where("ownerUID", "==", ownerUID).Documents(ctx)
 	defer iter.Stop()
 
-	log.Printf("🔍 Querying Firestore for ALL properties with ownerUID: %s", ownerUID)
-
 	for {
 		doc, err := iter.Next()
 		if err == iterator.Done {
 			break
 		}
 		if err != nil {
-			log.Printf("❌ Error iterating properties: %v", err)
 			return nil, fmt.Errorf("failed to iterate properties: %v", err)
 		}
 
 		var property models.Property
 		if err := doc.DataTo(&property); err != nil {
-			log.Printf("⚠️  Skipping property document %s due to conversion error: %v", doc.Ref.ID, err)
 			continue // Skip invalid documents
 		}
 
@@ -199,10 +194,7 @@ func (s *PropertyService) GetPropertiesByOwner(ctx context.Context, ownerUID str
 
 		// Include ALL properties regardless of status
 		properties = append(properties, property)
-		log.Printf("✅ Added property: ID=%s, Title=%s, Status=%s", property.ID, property.Title, property.Status)
 	}
-
-	log.Printf("📊 Found %d total properties for ownerUID: %s", len(properties), ownerUID)
 
 	return properties, nil
 }
@@ -218,21 +210,17 @@ func (s *PropertyService) GetPropertiesByTenantUID(ctx context.Context, tenantUI
 	iter := s.client.Collection("properties").Documents(ctx)
 	defer iter.Stop()
 
-	log.Printf("🔍 Querying Firestore for properties where user is a tenant (tenantUID: %s)", tenantUID)
-
 	for {
 		doc, err := iter.Next()
 		if err == iterator.Done {
 			break
 		}
 		if err != nil {
-			log.Printf("❌ Error iterating properties: %v", err)
 			return nil, fmt.Errorf("failed to iterate properties: %v", err)
 		}
 
 		var property models.Property
 		if err := doc.DataTo(&property); err != nil {
-			log.Printf("⚠️  Skipping property document %s due to conversion error: %v", doc.Ref.ID, err)
 			continue
 		}
 
@@ -259,11 +247,8 @@ func (s *PropertyService) GetPropertiesByTenantUID(ctx context.Context, tenantUI
 				}
 			}
 			properties = append(properties, property)
-			log.Printf("✅ Added tenant property: ID=%s, Title=%s, Status=%s", property.ID, property.Title, property.Status)
 		}
 	}
-
-	log.Printf("📊 Found %d properties where user is a tenant (tenantUID: %s)", len(properties), tenantUID)
 
 	return properties, nil
 }
@@ -277,21 +262,17 @@ func (s *PropertyService) GetPropertiesByTenantEmail(ctx context.Context, tenant
 	iter := s.client.Collection("properties").Documents(ctx)
 	defer iter.Stop()
 
-	log.Printf("🔍 Querying Firestore for properties where user is a tenant (tenantEmail: %s)", tenantEmail)
-
 	for {
 		doc, err := iter.Next()
 		if err == iterator.Done {
 			break
 		}
 		if err != nil {
-			log.Printf("❌ Error iterating properties: %v", err)
 			return nil, fmt.Errorf("failed to iterate properties: %v", err)
 		}
 
 		var property models.Property
 		if err := doc.DataTo(&property); err != nil {
-			log.Printf("⚠️  Skipping property document %s due to conversion error: %v", doc.Ref.ID, err)
 			continue
 		}
 
@@ -318,11 +299,8 @@ func (s *PropertyService) GetPropertiesByTenantEmail(ctx context.Context, tenant
 				}
 			}
 			properties = append(properties, property)
-			log.Printf("✅ Added tenant property by email: ID=%s, Title=%s, Status=%s", property.ID, property.Title, property.Status)
 		}
 	}
-
-	log.Printf("📊 Found %d properties where user is a tenant (tenantEmail: %s)", len(properties), tenantEmail)
 
 	return properties, nil
 }
@@ -356,7 +334,6 @@ func (s *PropertyService) GetArchivedPropertiesByOwner(ctx context.Context, owne
 		}
 	}
 
-	log.Printf("🔍 GetArchivedPropertiesByOwner: Found %d archived properties for ownerUID: %s", len(properties), ownerUID)
 	return properties, nil
 }
 

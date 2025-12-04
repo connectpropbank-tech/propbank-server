@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+
 	"cloud.google.com/go/firestore"
 	"cloud.google.com/go/storage"
 	firebase "firebase.google.com/go/v4"
@@ -23,7 +24,6 @@ var storageBucket string
 func GetFirestoreClient() *firestore.Client {
 	return client
 }
-
 
 func GetAuthClient() *auth.Client {
 	return authClient
@@ -47,7 +47,6 @@ func GetStorageBucket() string {
 func InitFirebase() {
 	err := godotenv.Load("config/.env")
 	if err != nil {
-		log.Printf("Warning: Error loading .env file: %v", err)
 	}
 
 	ctx := context.Background()
@@ -84,16 +83,11 @@ func InitFirebase() {
 			// Try to get project ID from credentials file path or use default
 			// The bucket name format is typically: {project-id}.appspot.com
 			storageBucket = "propbank-a98ed.appspot.com" // Default fallback
-			log.Printf(" Using default bucket name. Set STORAGE_BUCKET env var to override.")
 		}
 	}
 
-	log.Printf("📦 Using Storage bucket: %s", storageBucket)
-	
 	bucket := storageClient.Bucket(storageBucket)
 	if _, err := bucket.Attrs(ctx); err != nil {
-		log.Printf(" Warning: Could not verify bucket '%s' exists: %v", storageBucket, err)
-		log.Printf("You may need to create the bucket in Firebase Console or update the bucket name")
 	}
 	fmt.Println("Firebase initialized", client, authClient, storageClient)
 }

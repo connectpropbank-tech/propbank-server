@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"shoprop-backend/models"
 	"shoprop-backend/services"
@@ -35,7 +34,6 @@ func (uh *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	users, err := uh.userService.GetAllUsers(ctx)
 	if err != nil {
-		log.Printf("Error fetching users: %v", err)
 		response := models.UserResponse{
 			Success: false,
 			Message: "Failed to fetch users",
@@ -74,7 +72,6 @@ func (uh *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	user, err := uh.userService.GetUserByID(ctx, path)
 	if err != nil {
-		log.Printf("Error fetching user %s: %v", path, err)
 		response := models.UserResponse{
 			Success: false,
 			Message: "User not found",
@@ -153,7 +150,6 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	err := uh.userService.CreateOrUpdateUser(ctx, user)
 	if err != nil {
-		log.Printf("Error creating/updating user %s: %v", userReq.UID, err)
 		response := models.UserResponse{
 			Success: false,
 			Message: "Failed to create/update user",
@@ -163,8 +159,6 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-
-	log.Printf("✅ User created/updated successfully: %s (%s) - Role: %s", user.Name, user.Email, user.Role)
 
 	response := models.UserResponse{
 		Success: true,
@@ -199,7 +193,6 @@ func (uh *UserHandler) SearchUserByPhone(w http.ResponseWriter, r *http.Request)
 	ctx := context.Background()
 	user, err := uh.userService.GetUserByPhoneNumber(ctx, phoneNumber)
 	if err != nil {
-		log.Printf("User not found with phone %s: %v", phoneNumber, err)
 		response := models.UserResponse{
 			Success: false,
 			Message: "User is not found. Please ask to sign up with our platform to continue.",

@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"shoprop-backend/models"
 	"shoprop-backend/services"
@@ -43,7 +42,6 @@ func (ah *AuthHandler) CreateOrUpdateUser(w http.ResponseWriter, r *http.Request
 
 	var req CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Error decoding request body: %v", err)
 		response := models.UserResponse{
 			Success: false,
 			Message: "Invalid request body",
@@ -113,18 +111,15 @@ func (ah *AuthHandler) CreateOrUpdateUser(w http.ResponseWriter, r *http.Request
 		if existingUser.Role != "" && req.Role == models.RoleIndividual {
 			user.Role = existingUser.Role // Preserve existing role if not explicitly changed
 		}
-		log.Printf("Updating existing user: %s with role: %s", req.UID, user.Role)
 	} else {
 		// Create new user
 		user.CreatedAt = time.Now()
 		user.UpdatedAt = time.Now()
-		log.Printf("Creating new user: %s with role: %s", req.UID, user.Role)
 	}
 
 	// Save to Firestore
 	err = ah.userService.CreateOrUpdateUser(ctx, &user)
 	if err != nil {
-		log.Printf("Error saving user %s: %v", req.UID, err)
 		response := models.UserResponse{
 			Success: false,
 			Message: "Failed to save user",
@@ -151,5 +146,4 @@ func (ah *AuthHandler) CreateOrUpdateUser(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
-	log.Printf("✅ %s: %s (%s) - Phone: %s - Role: %s", message, user.Name, user.Email, user.PhoneNumber, user.Role)
 }

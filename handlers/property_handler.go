@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"shoprop-backend/config"
 	"shoprop-backend/models"
@@ -23,6 +22,7 @@ type PropertyHandler struct {
 	imageService             *services.ImageService
 	adminNotificationService *services.AdminNotificationService
 	siteSettingsService      *services.SiteSettingsService
+	emailService             *services.EmailService
 }
 
 func NewPropertyHandler(client *firestore.Client) *PropertyHandler {
@@ -36,6 +36,7 @@ func NewPropertyHandler(client *firestore.Client) *PropertyHandler {
 		imageService:             services.NewImageService(storageClient, bucketName),
 		adminNotificationService: services.NewAdminNotificationService(client),
 		siteSettingsService:      services.NewSiteSettingsService(client),
+		emailService:             services.NewEmailService(),
 	}
 }
 
@@ -47,21 +48,17 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 
 	// Log the raw request body for debugging
 	bodyBytes, _ := io.ReadAll(r.Body)
-	log.Printf("📥 Raw request body (first 500 chars): %s", string(bodyBytes[:min(len(bodyBytes), 500)]))
 
 	// Reset body for parsing
 	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	var req models.CreatePropertyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("❌ JSON decode error: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("📥 Parsed request - Images count: %d", len(req.Images))
 	if len(req.Images) > 0 {
-		log.Printf("📥 First image: %s", req.Images[0][:min(len(req.Images[0]), 100)])
 	}
 
 	// Validate required fields
@@ -73,7 +70,6 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 	// Get owner information
 	owner, err := h.userService.GetUserByID(r.Context(), req.OwnerUID)
 	if err != nil {
-		log.Printf("❌ Owner not found: %v", err)
 		http.Error(w, "Owner not found", http.StatusBadRequest)
 		return
 	}
@@ -81,28 +77,14 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 	// Generate unique property ID for image storage
 	propertyID := h.propertyService.GenerateID()
 
-	// Log received images for debugging
-	log.Printf("📷 Received %d images in request", len(req.Images))
-	for i, img := range req.Images {
-		if len(img) > 100 {
-			log.Printf("   Image %d: %s... (length: %d)", i+1, img[:100], len(img))
-		} else {
-			log.Printf("   Image %d: %s (length: %d)", i+1, img, len(img))
-		}
-	}
-
 	// Upload images to Firebase Storage (or keep R2 URLs as-is)
 	imageURLs := []string{}
 	if len(req.Images) > 0 {
-		log.Printf("📸 Processing %d images...", len(req.Images))
 		uploadedURLs, err := h.imageService.UploadPropertyImages(r.Context(), req.Images, propertyID)
 		if err != nil {
-			log.Printf("⚠️  Warning: Failed to upload some images: %v", err)
+			// continue without images
 		}
 		imageURLs = uploadedURLs
-		log.Printf("✅ Successfully processed %d images: %v", len(imageURLs), imageURLs)
-	} else {
-		log.Printf("⚠️  No images received in request")
 	}
 
 	// Create property object with comprehensive fields
@@ -182,12 +164,9 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 	// Create property in database
 	createdProperty, err := h.propertyService.CreateProperty(r.Context(), property)
 	if err != nil {
-		log.Printf("❌ Failed to create property: %v", err)
 		http.Error(w, "Failed to create property", http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("✅ Property created successfully: %s by %s", createdProperty.Title, createdProperty.OwnerName)
 
 	// Return success response
 	w.Header().Set("Content-Type", "application/json")
@@ -273,14 +252,11 @@ func (h *PropertyHandler) GetAllProperties(w http.ResponseWriter, r *http.Reques
 
 	if listingType != "" {
 		properties, err = h.propertyService.GetPropertiesByListingType(r.Context(), listingType)
-		log.Printf("📍 Filtering properties by listing type: %s, found %d properties", listingType, len(properties))
 	} else {
 		properties, err = h.propertyService.GetAllProperties(r.Context())
-		log.Printf("📍 Getting all properties, found %d properties", len(properties))
 	}
 
 	if err != nil {
-		log.Printf("❌ Failed to get properties: %v", err)
 		http.Error(w, "Failed to get properties", http.StatusInternalServerError)
 		return
 	}
@@ -398,7 +374,6 @@ func (h *PropertyHandler) GetProperty(w http.ResponseWriter, r *http.Request) {
 
 	property, err := h.propertyService.GetPropertyByID(r.Context(), path)
 	if err != nil {
-		log.Printf("❌ Property not found: %v", err)
 		http.Error(w, "Property not found", http.StatusNotFound)
 		return
 	}
@@ -425,7 +400,6 @@ func (h *PropertyHandler) GetPropertiesByOwner(w http.ResponseWriter, r *http.Re
 	// Get ALL properties for this owner (regardless of isActive status)
 	ownedProperties, err := h.propertyService.GetPropertiesByOwner(r.Context(), ownerUID)
 	if err != nil {
-		log.Printf("❌ Failed to get properties by owner: %v", err)
 		http.Error(w, "Failed to get properties", http.StatusInternalServerError)
 		return
 	}
@@ -433,11 +407,8 @@ func (h *PropertyHandler) GetPropertiesByOwner(w http.ResponseWriter, r *http.Re
 	// Also get properties where the user is a tenant
 	tenantProperties, err := h.propertyService.GetPropertiesByTenantUID(r.Context(), ownerUID)
 	if err != nil {
-		log.Printf("⚠️  Warning: Failed to get properties by tenant: %v (continuing with owned properties only)", err)
 		tenantProperties = []models.Property{} // Continue with empty tenant properties if error
 	}
-
-	log.Printf("📦 Found %d owned properties and %d tenant properties for userUID: %s", len(ownedProperties), len(tenantProperties), ownerUID)
 
 	// Create a map to track property IDs to avoid duplicates (in case a user is both owner and tenant)
 	propertyMap := make(map[string]*models.PropertyResponse)
@@ -594,7 +565,6 @@ func (h *PropertyHandler) GetPropertiesByOwner(w http.ResponseWriter, r *http.Re
 		"ownerUID":   ownerUID,
 	})
 
-	log.Printf("✅ Sent %d properties (%d owned, %d tenant) to client for userUID: %s", len(propertyResponses), len(ownedProperties), len(tenantProperties), ownerUID)
 }
 
 // GetPropertiesByTenant gets all properties where the user is a tenant (using email)
@@ -612,12 +582,9 @@ func (h *PropertyHandler) GetPropertiesByTenant(w http.ResponseWriter, r *http.R
 
 	properties, err := h.propertyService.GetPropertiesByTenantEmail(r.Context(), userEmail)
 	if err != nil {
-		log.Printf("❌ Failed to get properties by tenant email: %v", err)
 		http.Error(w, "Failed to get properties", http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("📦 Found %d properties where user is a tenant (email: %s)", len(properties), userEmail)
 
 	// Convert to response format
 	var propertyResponses []models.PropertyResponse
@@ -709,12 +676,9 @@ func (h *PropertyHandler) GetArchivedPropertiesByOwner(w http.ResponseWriter, r 
 
 	properties, err := h.propertyService.GetArchivedPropertiesByOwner(r.Context(), ownerUID)
 	if err != nil {
-		log.Printf("❌ Failed to get archived properties by owner: %v", err)
 		http.Error(w, "Failed to get archived properties", http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("🔍 Found %d archived properties for ownerUID: %s", len(properties), ownerUID)
 
 	// Convert to response format
 	var propertyResponses []models.PropertyResponse
@@ -791,7 +755,6 @@ func (h *PropertyHandler) GetArchivedPropertiesByOwner(w http.ResponseWriter, r 
 		"ownerUID":   ownerUID,
 	})
 
-	log.Printf("📍 Retrieved %d archived properties for ownerUID: %s", len(propertyResponses), ownerUID)
 }
 
 func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request) {
@@ -817,7 +780,6 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 	// Get existing property first
 	existingProperty, err := h.propertyService.GetPropertyByID(r.Context(), path)
 	if err != nil {
-		log.Printf("❌ Property not found: %v", err)
 		http.Error(w, "Property not found", http.StatusNotFound)
 		return
 	}
@@ -843,13 +805,10 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 		}
 
 		if len(imageStrings) > 0 {
-			log.Printf("📸 Uploading %d new images to Firebase Storage...", len(imageStrings))
 			uploadedURLs, err := h.imageService.UploadPropertyImages(r.Context(), imageStrings, path)
 			if err != nil {
-				log.Printf("⚠️  Warning: Failed to upload some images: %v", err)
 			} else {
 				imageURLs = uploadedURLs
-				log.Printf("✅ Successfully uploaded %d images", len(imageURLs))
 			}
 		}
 	}
@@ -870,28 +829,22 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 			if statusStr, ok := value.(string); ok {
 				if statusStr == "active" || statusStr == "inactive" {
 					updateData[key] = statusStr
-					log.Printf("📝 Setting status to: '%s' for property %s (isActive unchanged)", statusStr, path)
 				} else {
-					log.Printf("⚠️  Invalid status value: '%s' (must be 'active' or 'inactive'), skipping", statusStr)
 				}
 			} else {
 				updateData[key] = value
-				log.Printf("📝 Using status value as-is: %v (type: %T) for property %s", value, value, path)
 			}
 		case "isActive":
 			// Ensure isActive is properly converted to boolean
 			// Keep status and isActive independent - do NOT sync
 			if boolVal, ok := value.(bool); ok {
 				updateData[key] = boolVal
-				log.Printf("📝 Setting isActive to: %v for property %s (status unchanged)", boolVal, path)
 			} else if strVal, ok := value.(string); ok {
 				// Handle string "true"/"false" from JSON
 				boolVal := (strVal == "true")
 				updateData[key] = boolVal
-				log.Printf("📝 Converting isActive string '%s' to bool: %v for property %s (status unchanged)", strVal, boolVal, path)
 			} else {
 				updateData[key] = value
-				log.Printf("📝 Using isActive value as-is: %v (type: %T) for property %s", value, value, path)
 			}
 		default:
 			updateData[key] = value
@@ -905,16 +858,13 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 	var wantToSellBeingSetToTrue bool = false
 	var wantToSellBeingSetToFalse bool = false
 	if wantToSell, hasWantToSell := updateData["wantToSell"]; hasWantToSell {
-		log.Printf("🔍 wantToSell update detected: new value = %v, existing value = %v", wantToSell, existingProperty.WantToSell)
 		if wantToSellBool, ok := wantToSell.(bool); ok {
 			if wantToSellBool && !existingProperty.WantToSell {
 				// Changing from false to true
 				wantToSellBeingSetToTrue = true
-				log.Printf("📢 wantToSell being SET TO TRUE (will notify admin)")
 			} else if !wantToSellBool && existingProperty.WantToSell {
 				// Changing from true to false (cancelled)
 				wantToSellBeingSetToFalse = true
-				log.Printf("📢 wantToSell being SET TO FALSE (will notify admin of cancellation)")
 			}
 		}
 	}
@@ -922,15 +872,17 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 	// Update property in database
 	updatedProperty, err := h.propertyService.UpdateProperty(r.Context(), path, updateData)
 	if err != nil {
-		log.Printf("❌ Failed to update property: %v", err)
 		http.Error(w, "Failed to update property", http.StatusInternalServerError)
 		return
 	}
 
-	// If tenants were updated, map property information to users with userUID
+	// If tenants were updated, map property information to users with userUID and send email notifications
 	if tenants, hasTenants := updateData["tenants"]; hasTenants {
 		if tenantsArray, ok := tenants.([]interface{}); ok {
 			h.updateUsersWithRentedProperty(r.Context(), path, updatedProperty.OwnerUID, updatedProperty.OwnerName, tenantsArray)
+
+			// Send email notifications for newly added tenants
+			h.sendTenantAddedEmails(r.Context(), updatedProperty, existingProperty.Tenants, tenantsArray)
 		}
 	}
 
@@ -945,7 +897,6 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Log the isActive status after update
-	log.Printf("✅ Property updated successfully: %s by %s (isActive: %v)", updatedProperty.Title, updatedProperty.OwnerName, updatedProperty.IsActive)
 
 	// Return success response
 	w.Header().Set("Content-Type", "application/json")
@@ -991,12 +942,9 @@ func (h *PropertyHandler) SearchProperties(w http.ResponseWriter, r *http.Reques
 	listingType := r.URL.Query().Get("listingType")
 	projectCondition := r.URL.Query().Get("projectCondition")
 
-	log.Printf("🔍 Searching properties with query: '%s', listingType: '%s', projectCondition: '%s'", query, listingType, projectCondition)
-
 	// Search properties
 	properties, err := h.propertyService.SearchProperties(r.Context(), query, listingType, projectCondition)
 	if err != nil {
-		log.Printf("❌ Failed to search properties: %v", err)
 		http.Error(w, "Failed to search properties", http.StatusInternalServerError)
 		return
 	}
@@ -1046,8 +994,6 @@ func (h *PropertyHandler) SearchProperties(w http.ResponseWriter, r *http.Reques
 			RentalStatus:     property.RentalStatus,
 		})
 	}
-
-	log.Printf("Found %d properties matching search criteria", len(propertyResponses))
 
 	response := map[string]interface{}{
 		"success":    true,
@@ -1100,7 +1046,6 @@ func (h *PropertyHandler) updateUsersWithRentedProperty(ctx context.Context, pro
 		// Update user with rented property information
 		user, err := h.userService.GetUserByID(ctx, userUID)
 		if err != nil {
-			log.Printf("⚠️  Warning: Failed to get user %s for property mapping: %v", userUID, err)
 			continue
 		}
 
@@ -1113,9 +1058,7 @@ func (h *PropertyHandler) updateUsersWithRentedProperty(ctx context.Context, pro
 		// Save updated user
 		err = h.userService.CreateOrUpdateUser(ctx, user)
 		if err != nil {
-			log.Printf("⚠️  Warning: Failed to update user %s with property info: %v", userUID, err)
 		} else {
-			log.Printf("✅ User %s updated with rented property: %s (Owner: %s)", userUID, propertyID, ownerName)
 		}
 	}
 }
@@ -1125,7 +1068,6 @@ func (h *PropertyHandler) createWantToSellNotification(ctx context.Context, prop
 	// Get owner details to include phone number
 	owner, err := h.userService.GetUserByID(ctx, property.OwnerUID)
 	if err != nil {
-		log.Printf("⚠️  Warning: Failed to get owner details for notification: %v", err)
 		// Continue without phone number
 	}
 
@@ -1156,9 +1098,7 @@ func (h *PropertyHandler) createWantToSellNotification(ctx context.Context, prop
 	// Create notification
 	_, err = h.adminNotificationService.CreateNotification(ctx, notificationReq)
 	if err != nil {
-		log.Printf("⚠️  Warning: Failed to create admin notification for want to sell: %v", err)
 	} else {
-		log.Printf("✅ Admin notification created for property %s (Owner wants to sell)", property.ID)
 	}
 }
 
@@ -1167,7 +1107,6 @@ func (h *PropertyHandler) createWantToSellCancelledNotification(ctx context.Cont
 	// Get owner details to include phone number
 	owner, err := h.userService.GetUserByID(ctx, property.OwnerUID)
 	if err != nil {
-		log.Printf("⚠️  Warning: Failed to get owner details for notification: %v", err)
 		// Continue without phone number
 	}
 
@@ -1198,8 +1137,83 @@ func (h *PropertyHandler) createWantToSellCancelledNotification(ctx context.Cont
 	// Create notification
 	_, err = h.adminNotificationService.CreateNotification(ctx, notificationReq)
 	if err != nil {
-		log.Printf("⚠️  Warning: Failed to create admin notification for want to sell cancelled: %v", err)
 	} else {
-		log.Printf("✅ Admin notification created for property %s (Owner cancelled sell request)", property.ID)
+	}
+}
+
+// sendTenantAddedEmails sends email notifications to both owner and newly added tenants
+func (h *PropertyHandler) sendTenantAddedEmails(ctx context.Context, property *models.Property, existingTenants []models.TenantInfo, newTenantsRaw []interface{}) {
+	// Get owner details
+	owner, err := h.userService.GetUserByID(ctx, property.OwnerUID)
+	if err != nil {
+	}
+
+	ownerName := property.OwnerName
+	ownerEmail := property.OwnerEmail
+	ownerPhone := ""
+	if owner != nil {
+		ownerName = owner.Name
+		if owner.Email != "" {
+			ownerEmail = owner.Email
+		}
+		ownerPhone = owner.PhoneNumber
+	}
+
+	// Create a map of existing tenant emails to check for new tenants
+	existingTenantEmails := make(map[string]bool)
+	for _, tenant := range existingTenants {
+		if tenant.Email != "" {
+			existingTenantEmails[tenant.Email] = true
+		}
+	}
+
+	// Process new tenants
+	for _, tenantInterface := range newTenantsRaw {
+		tenantMap, ok := tenantInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		tenantEmail, _ := tenantMap["email"].(string)
+		tenantFirstName, _ := tenantMap["firstName"].(string)
+		tenantLastName, _ := tenantMap["lastName"].(string)
+		tenantPhone, _ := tenantMap["phone"].(string)
+		isActive, _ := tenantMap["isActive"].(bool)
+
+		// Skip if tenant email already existed (not a new tenant) or if inactive
+		if tenantEmail != "" && existingTenantEmails[tenantEmail] {
+			continue
+		}
+
+		if !isActive {
+			continue
+		}
+
+		tenantName := strings.TrimSpace(tenantFirstName + " " + tenantLastName)
+		if tenantName == "" {
+			tenantName = "Tenant"
+		}
+
+		// Send email notification
+		go func(tName, tEmail, tPhone string) {
+			emailData := services.TenantAddedEmailData{
+				TenantName:      tName,
+				TenantEmail:     tEmail,
+				TenantPhone:     tPhone,
+				OwnerName:       ownerName,
+				OwnerEmail:      ownerEmail,
+				OwnerPhone:      ownerPhone,
+				PropertyTitle:   property.Title,
+				PropertyAddress: property.Location,
+				PropertyType:    property.PropertyType,
+				MonthlyRent:     property.MonthlyRent,
+				AgreementStart:  property.AgreementStartDate,
+				AgreementEnd:    property.AgreementEndDate,
+			}
+
+			if err := h.emailService.SendTenantAddedNotification(emailData); err != nil {
+			} else {
+			}
+		}(tenantName, tenantEmail, tenantPhone)
 	}
 }

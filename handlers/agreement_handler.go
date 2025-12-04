@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -18,6 +17,7 @@ type AgreementHandler struct {
 	propertyService          *services.PropertyService
 	userService              *services.UserService
 	adminNotificationService *services.AdminNotificationService
+	emailService             *services.EmailService
 }
 
 func NewAgreementHandler(client *firestore.Client) *AgreementHandler {
@@ -25,6 +25,7 @@ func NewAgreementHandler(client *firestore.Client) *AgreementHandler {
 		propertyService:          services.NewPropertyService(client),
 		userService:              services.NewUserService(client),
 		adminNotificationService: services.NewAdminNotificationService(client),
+		emailService:             services.NewEmailService(),
 	}
 }
 
@@ -52,7 +53,6 @@ func (h *AgreementHandler) RenewAgreement(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Error decoding request: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -60,7 +60,6 @@ func (h *AgreementHandler) RenewAgreement(w http.ResponseWriter, r *http.Request
 	// Get property
 	property, err := h.propertyService.GetPropertyByID(ctx, req.PropertyID)
 	if err != nil {
-		log.Printf("Error fetching property: %v", err)
 		http.Error(w, "Property not found", http.StatusNotFound)
 		return
 	}
@@ -79,7 +78,6 @@ func (h *AgreementHandler) RenewAgreement(w http.ResponseWriter, r *http.Request
 
 	updatedProperty, err := h.propertyService.UpdateProperty(ctx, req.PropertyID, updateData)
 	if err != nil {
-		log.Printf("Error updating property: %v", err)
 		http.Error(w, "Failed to renew agreement", http.StatusInternalServerError)
 		return
 	}
@@ -117,7 +115,6 @@ func (h *AgreementHandler) RenewAgreement(w http.ResponseWriter, r *http.Request
 
 	_, err = h.adminNotificationService.CreateNotification(ctx, notificationReq)
 	if err != nil {
-		log.Printf("Error creating admin notification for agreement renewal: %v", err)
 		// Don't fail the request if notification fails
 	}
 
@@ -133,8 +130,6 @@ func (h *AgreementHandler) RenewAgreement(w http.ResponseWriter, r *http.Request
 // This clears tenant data, marks property as available for rent, and notifies admin
 func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-
-	log.Printf("✅ TerminateAgreement handler called: Method=%s, Path=%s, URL=%s", r.Method, r.URL.Path, r.URL.String())
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -156,7 +151,6 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Error decoding request: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -164,7 +158,6 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 	// Get property BEFORE updating (to capture tenant details for notification)
 	property, err := h.propertyService.GetPropertyByID(ctx, req.PropertyID)
 	if err != nil {
-		log.Printf("Error fetching property: %v", err)
 		http.Error(w, "Property not found", http.StatusNotFound)
 		return
 	}
@@ -227,7 +220,6 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 
 	updatedProperty, err := h.propertyService.UpdateProperty(ctx, req.PropertyID, updateData)
 	if err != nil {
-		log.Printf("Error updating property: %v", err)
 		http.Error(w, "Failed to terminate agreement", http.StatusInternalServerError)
 		return
 	}
@@ -323,11 +315,31 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 
 	_, err = h.adminNotificationService.CreateNotification(ctx, notificationReq)
 	if err != nil {
-		log.Printf("Error creating admin notification for agreement termination: %v", err)
 		// Don't fail the request if notification fails
 	}
 
-	log.Printf("✅ Agreement terminated successfully for property %s. Tenant data cleared, property marked as available.", req.PropertyID)
+	// Send email notification to both owner and tenant
+	go func() {
+		emailData := services.AgreementTerminationEmailData{
+			TenantName:         tenantName,
+			TenantEmail:        tenantEmail,
+			TenantPhone:        tenantPhone,
+			OwnerName:          ownerName,
+			OwnerEmail:         ownerEmail,
+			OwnerPhone:         ownerPhone,
+			PropertyTitle:      property.Title,
+			PropertyAddress:    property.Location,
+			PropertyType:       property.PropertyType,
+			TerminationDate:    services.FormatTimeIST(time.Now()),
+			Reason:             "Agreement terminated by property owner",
+			AgreementStartDate: property.AgreementStartDate,
+			AgreementEndDate:   property.AgreementEndDate,
+			AgreementPeriod:    property.AgreementPeriod,
+		}
+
+		if err := h.emailService.SendAgreementTerminationNotification(emailData); err != nil {
+		}
+	}()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"shoprop-backend/config"
 	"shoprop-backend/handlers"
+	"shoprop-backend/services"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -27,9 +28,7 @@ func enableCORS(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// Load environment variables
 	if err := godotenv.Load("config/.env"); err != nil {
-		log.Println("⚠️ Warning: No .env file found, using system environment variables")
 	} else {
-		log.Println("✅ Environment variables loaded from .env file")
 	}
 
 	// Initialize Firebase
@@ -51,11 +50,17 @@ func main() {
 	siteSettingsHandler := handlers.NewSiteSettingsHandler(config.GetFirestoreClient())
 	agreementHandler := handlers.NewAgreementHandler(config.GetFirestoreClient())
 	if err != nil {
-		log.Printf("⚠️ Warning: Failed to initialize upload handler: %v", err)
-		log.Println("📁 File uploads will use Firebase Storage as fallback")
 	} else {
-		log.Println("✅ Cloudflare R2 Upload Handler initialized")
 	}
+
+	// Initialize email service and reminder scheduler
+	emailService := services.NewEmailService()
+	visitService := services.NewVisitService(config.GetFirestoreClient())
+	userService := services.NewUserService(config.GetFirestoreClient())
+	reminderScheduler := services.NewReminderScheduler(emailService, visitService, userService)
+
+	// Start the reminder scheduler (checks every minute)
+	reminderScheduler.Start()
 
 	// Routes
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -440,48 +445,6 @@ func main() {
 			}
 		})
 	}
-
-	log.Println("🚀 ShoPROP Backend Server starting on :8002")
-	log.Println("📍 API Endpoints:")
-	log.Println("   GET  /           - Health check")
-	log.Println("   POST /auth/user  - Create/Update user")
-	log.Println("   POST /users      - Create user with phone number")
-	log.Println("   GET  /users      - Get all users")
-	log.Println("   GET  /users/{id} - Get user by ID")
-	log.Println("   POST /properties - Create property")
-	log.Println("   GET  /properties - Get all properties")
-	log.Println("   GET  /properties?ownerUID={uid} - Get properties by owner")
-	log.Println("   GET  /properties/tenant?userEmail={email} - Get properties where user is tenant")
-	log.Println("   GET  /properties/search?q={query}&listingType={type}&projectCondition={condition} - Search properties")
-	log.Println("   GET  /properties/{id} - Get property by ID")
-	log.Println("   PUT/PATCH  /properties/{id} - Update property")
-	log.Println("   POST /agreements/terminate - Terminate agreement and clear tenant data")
-	log.Println("   POST /agreements/renew - Renew agreement")
-	log.Println("   POST /visits     - Create visit")
-	log.Println("   GET  /visits?userId={uid} - Get visits by user")
-	log.Println("   GET  /visits/{id} - Get visit by ID")
-	log.Println("   PUT  /visits/{id} - Update visit")
-	log.Println("   DELETE /visits/{id} - Delete visit")
-	log.Println("   GET  /services - Get all services")
-	log.Println("   POST /service-requests - Create service request")
-	log.Println("   GET  /service-requests?userUID={uid} - Get service requests by user")
-	log.Println("   GET  /service-requests?admin=true - Get all service requests (admin)")
-	log.Println("   PUT  /service-requests/{id} - Update service request status (admin)")
-	log.Println("   POST /admin/notifications - Create admin notification")
-	log.Println("   GET  /admin/notifications - Get all admin notifications")
-	log.Println("   GET  /admin/notifications?unread=true - Get unread admin notifications")
-	log.Println("   PUT  /admin/notifications/{id}/read - Mark notification as read")
-	log.Println("   DELETE /admin/notifications/{id} - Delete admin notification")
-	log.Println("   GET  /admin/site-settings - Get site settings")
-	log.Println("   PUT  /admin/site-settings - Update site settings (admin)")
-	log.Println("   PUT  /admin/site-settings/quote - Update quote only (admin)")
-	log.Println("   POST /upload - Upload image file to Cloudflare R2")
-	log.Println("   POST /upload/image - Upload base64 image to Cloudflare R2")
-	log.Println("   POST /upload/document - Upload document to Cloudflare R2")
-	log.Println("   POST /upload/property-images - Upload property images to Cloudflare R2")
-	log.Println("   POST /upload/service-request-image - Upload service request image to Cloudflare R2")
-	log.Println("   DELETE /files/{key} - Delete file from Cloudflare R2")
-	log.Println("   📝 Note: Tenants managed via property updates (PUT /properties/{id})")
 
 	if err := http.ListenAndServe(":8002", nil); err != nil {
 		log.Fatalf("❌ Could not start server: %s\n", err.Error())

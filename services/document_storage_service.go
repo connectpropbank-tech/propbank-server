@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -32,7 +31,6 @@ func (s *DocumentStorageService) UploadDocument(ctx context.Context, base64File 
 	// Parse base64 data (handles both images and PDFs)
 	fileData, contentType, err := s.parseBase64File(base64File)
 	if err != nil {
-		log.Printf("❌ Failed to parse file: %v", err)
 		return "", fmt.Errorf("failed to parse file: %w", err)
 	}
 
@@ -42,11 +40,9 @@ func (s *DocumentStorageService) UploadDocument(ctx context.Context, base64File 
 	// Upload to Firebase Storage
 	fileURL, err := s.uploadToStorage(ctx, fileData, filename, contentType)
 	if err != nil {
-		log.Printf("❌ Failed to upload file: %v", err)
 		return "", fmt.Errorf("failed to upload file: %w", err)
 	}
 
-	log.Printf("✅ Uploaded document to Storage: %s", fileURL)
 	return fileURL, nil
 }
 
@@ -62,7 +58,7 @@ func (s *DocumentStorageService) parseBase64File(base64File string) ([]byte, str
 	// Extract content type from header
 	header := parts[0]
 	contentType := "application/octet-stream" // default
-	
+
 	if strings.Contains(header, "image/jpeg") || strings.Contains(header, "image/jpg") {
 		contentType = "image/jpeg"
 	} else if strings.Contains(header, "image/png") {
@@ -113,7 +109,7 @@ func (s *DocumentStorageService) generateFilename(propertyID, documentName, docu
 	sanitizedName := strings.ReplaceAll(documentName, " ", "_")
 	sanitizedName = strings.ReplaceAll(sanitizedName, "/", "_")
 	sanitizedName = strings.ReplaceAll(sanitizedName, "\\", "_")
-	
+
 	// Create unique filename with timestamp
 	timestamp := time.Now().Unix()
 	return fmt.Sprintf("documents/%s/%s_%s_%d%s", propertyID, sanitizedName, documentType, timestamp, extension)
@@ -124,7 +120,6 @@ func (s *DocumentStorageService) uploadToStorage(ctx context.Context, fileData [
 	// Verify bucket exists first
 	bucket := s.client.Bucket(s.bucketName)
 	if _, err := bucket.Attrs(ctx); err != nil {
-		log.Printf("❌ Bucket '%s' does not exist or is not accessible: %v", s.bucketName, err)
 		return "", fmt.Errorf("bucket '%s' does not exist. Please create it in Firebase Console or check the bucket name. Error: %v", s.bucketName, err)
 	}
 
@@ -149,7 +144,6 @@ func (s *DocumentStorageService) uploadToStorage(ctx context.Context, fileData [
 
 	// Make object publicly readable
 	if err := obj.ACL().Set(ctx, storage.AllUsers, storage.RoleReader); err != nil {
-		log.Printf("⚠️  Warning: Failed to make document public: %v", err)
 	}
 
 	// Generate public URL
@@ -168,12 +162,11 @@ func (s *DocumentStorageService) DeleteDocument(ctx context.Context, fileURL str
 
 	bucket := s.client.Bucket(s.bucketName)
 	obj := bucket.Object(filename)
-	
+
 	if err := obj.Delete(ctx); err != nil {
 		return fmt.Errorf("failed to delete document: %v", err)
 	}
 
-	log.Printf("🗑️  Deleted document from Storage: %s", fileURL)
 	return nil
 }
 
@@ -188,4 +181,3 @@ func (s *DocumentStorageService) extractFilenameFromURL(fileURL string) string {
 	// Join the path parts after the bucket name
 	return strings.Join(parts[4:], "/")
 }
-

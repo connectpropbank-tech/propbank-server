@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"shoprop-backend/models"
 	"shoprop-backend/services"
@@ -29,7 +28,6 @@ func (h *SiteSettingsHandler) GetSiteSettings(w http.ResponseWriter, r *http.Req
 
 	settings, err := h.siteSettingsService.GetSiteSettings(r.Context())
 	if err != nil {
-		log.Printf("❌ Failed to get site settings: %v", err)
 		http.Error(w, "Failed to get site settings", http.StatusInternalServerError)
 		return
 	}
@@ -60,12 +58,9 @@ func (h *SiteSettingsHandler) UpdateSiteSettings(w http.ResponseWriter, r *http.
 
 	updatedSettings, err := h.siteSettingsService.UpdateSiteSettings(r.Context(), settings)
 	if err != nil {
-		log.Printf("❌ Failed to update site settings: %v", err)
 		http.Error(w, "Failed to update site settings", http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("✅ Site settings updated by admin: %s", adminUID)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -100,12 +95,9 @@ func (h *SiteSettingsHandler) UpdateQuote(w http.ResponseWriter, r *http.Request
 
 	updatedSettings, err := h.siteSettingsService.UpdateQuote(r.Context(), req.Quote, adminUID)
 	if err != nil {
-		log.Printf("❌ Failed to update quote: %v", err)
 		http.Error(w, "Failed to update quote", http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("✅ Quote updated by admin: %s", adminUID)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

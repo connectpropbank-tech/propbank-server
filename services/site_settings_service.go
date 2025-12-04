@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
 	"shoprop-backend/models"
 	"time"
 
@@ -27,7 +26,6 @@ func (s *SiteSettingsService) GetSiteSettings(ctx context.Context) (*models.Site
 	doc, err := s.client.Collection("siteSettings").Doc(siteSettingsDocID).Get(ctx)
 	if err != nil {
 		// If document doesn't exist, return default settings
-		log.Printf("⚠️  Site settings not found, returning defaults: %v", err)
 		return &models.SiteSettings{
 			ID:                   siteSettingsDocID,
 			Quote:                "Manage your properties and plan visits with ease",
@@ -60,7 +58,6 @@ func (s *SiteSettingsService) UpdateSiteSettings(ctx context.Context, settings m
 		return nil, fmt.Errorf("failed to update site settings: %v", err)
 	}
 
-	log.Printf("✅ Site settings updated successfully")
 	return &settings, nil
 }
 

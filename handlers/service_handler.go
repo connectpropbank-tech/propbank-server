@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"shoprop-backend/models"
 	"shoprop-backend/services"
@@ -41,7 +40,6 @@ func (sh *ServiceHandler) GetAllServices(w http.ResponseWriter, r *http.Request)
 	ctx := context.Background()
 	services, err := sh.serviceService.GetAllServices(ctx)
 	if err != nil {
-		log.Printf("Error fetching services: %v", err)
 		response := models.ServiceResponse{
 			Success: false,
 			Message: "Failed to fetch services",
@@ -79,7 +77,6 @@ func (sh *ServiceHandler) CreateServiceRequest(w http.ResponseWriter, r *http.Re
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-		log.Printf("Error decoding request body: %v", err)
 		response := models.ServiceRequestResponse{
 			Success: false,
 			Message: "Invalid request body",
@@ -107,7 +104,6 @@ func (sh *ServiceHandler) CreateServiceRequest(w http.ResponseWriter, r *http.Re
 	// Get user information
 	user, err := sh.serviceService.GetUserByID(ctx, reqBody.UserUID)
 	if err != nil {
-		log.Printf("Error fetching user %s: %v", reqBody.UserUID, err)
 		response := models.ServiceRequestResponse{
 			Success: false,
 			Message: "User not found",
@@ -121,7 +117,6 @@ func (sh *ServiceHandler) CreateServiceRequest(w http.ResponseWriter, r *http.Re
 	// Get service information
 	service, err := sh.serviceService.GetServiceByID(ctx, reqBody.ServiceID)
 	if err != nil {
-		log.Printf("Error fetching service %s: %v", reqBody.ServiceID, err)
 		response := models.ServiceRequestResponse{
 			Success: false,
 			Message: "Service not found",
@@ -138,11 +133,9 @@ func (sh *ServiceHandler) CreateServiceRequest(w http.ResponseWriter, r *http.Re
 		requestID := uuid.New().String()
 		uploadedURL, err := sh.r2Service.UploadServiceRequestImage(ctx, reqBody.Image, requestID)
 		if err != nil {
-			log.Printf("⚠️  Warning: Failed to upload service request image: %v", err)
 			// Continue without image rather than failing the entire request
 		} else {
 			imageURL = uploadedURL
-			log.Printf("✅ Service request image uploaded: %s", imageURL)
 		}
 	}
 
@@ -165,7 +158,6 @@ func (sh *ServiceHandler) CreateServiceRequest(w http.ResponseWriter, r *http.Re
 
 	err = sh.serviceService.CreateServiceRequest(ctx, &serviceRequest)
 	if err != nil {
-		log.Printf("Error creating service request: %v", err)
 		response := models.ServiceRequestResponse{
 			Success: false,
 			Message: "Failed to create service request",
@@ -189,7 +181,6 @@ func (sh *ServiceHandler) CreateServiceRequest(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
 
-	log.Printf("✅ Service request created: %s by %s for service %s", serviceRequest.ID, user.Name, service.Name)
 }
 
 // GetServiceRequests handles GET /service-requests - fetches service requests (admin only or user's own)
@@ -224,7 +215,6 @@ func (sh *ServiceHandler) GetServiceRequests(w http.ResponseWriter, r *http.Requ
 	}
 
 	if err != nil {
-		log.Printf("Error fetching service requests: %v", err)
 		response := models.ServiceRequestResponse{
 			Success: false,
 			Message: "Failed to fetch service requests",
@@ -279,7 +269,6 @@ func (sh *ServiceHandler) UpdateServiceRequestStatus(w http.ResponseWriter, r *h
 	ctx := context.Background()
 	err := sh.serviceService.UpdateServiceRequestStatus(ctx, path, reqBody.Status, reqBody.AdminNotes)
 	if err != nil {
-		log.Printf("Error updating service request %s: %v", path, err)
 		response := models.ServiceRequestResponse{
 			Success: false,
 			Message: "Failed to update service request",
@@ -299,7 +288,6 @@ func (sh *ServiceHandler) UpdateServiceRequestStatus(w http.ResponseWriter, r *h
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
-	log.Printf("✅ Service request %s updated to status: %s", path, reqBody.Status)
 }
 
 // PopulateServices handles POST /admin/populate-services - adds all services to database
@@ -431,7 +419,6 @@ func (sh *ServiceHandler) PopulateServices(w http.ResponseWriter, r *http.Reques
 	for _, service := range services {
 		err := sh.serviceService.CreateService(ctx, &service)
 		if err != nil {
-			log.Printf("Error creating service %s: %v", service.Name, err)
 			response := models.ServiceResponse{
 				Success: false,
 				Message: "Failed to create services",
@@ -452,7 +439,6 @@ func (sh *ServiceHandler) PopulateServices(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
 
-	log.Printf("✅ Successfully created %d services in Firestore", len(services))
 }
 
 // createServiceRequestNotification creates an admin notification for a new service request
@@ -478,8 +464,6 @@ func (sh *ServiceHandler) createServiceRequestNotification(ctx context.Context, 
 	// Create notification
 	_, err := sh.adminNotificationService.CreateNotification(ctx, notificationReq)
 	if err != nil {
-		log.Printf("⚠️  Warning: Failed to create admin notification for service request: %v", err)
 	} else {
-		log.Printf("✅ Admin notification created for service request %s", serviceRequest.ID)
 	}
 }

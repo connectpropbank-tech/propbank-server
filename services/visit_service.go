@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"shoprop-backend/models"
 	"strings"
@@ -72,11 +71,9 @@ func (vs *VisitService) CreateVisit(ctx context.Context, visit *models.Visit) er
 
 	_, err := vs.client.Collection("visits").Doc(visit.ID).Set(ctx, visit)
 	if err != nil {
-		log.Printf("❌ Error creating visit: %v", err)
 		return fmt.Errorf("failed to create visit: %v", err)
 	}
 
-	log.Printf("✅ Visit created successfully: %s", visit.ID)
 	return nil
 }
 
@@ -84,13 +81,11 @@ func (vs *VisitService) CreateVisit(ctx context.Context, visit *models.Visit) er
 func (vs *VisitService) GetVisitByID(ctx context.Context, visitID string) (*models.Visit, error) {
 	doc, err := vs.client.Collection("visits").Doc(visitID).Get(ctx)
 	if err != nil {
-		log.Printf("❌ Error getting visit %s: %v", visitID, err)
 		return nil, fmt.Errorf("visit not found: %v", err)
 	}
 
 	var visit models.Visit
 	if err := doc.DataTo(&visit); err != nil {
-		log.Printf("❌ Error unmarshaling visit %s: %v", visitID, err)
 		return nil, fmt.Errorf("failed to unmarshal visit: %v", err)
 	}
 
@@ -109,19 +104,16 @@ func (vs *VisitService) GetVisitsByUserID(ctx context.Context, userID string) ([
 			break
 		}
 		if err != nil {
-			log.Printf("❌ Error iterating visits for user %s: %v", userID, err)
 			return nil, fmt.Errorf("failed to get visits: %v", err)
 		}
 
 		var visit models.Visit
 		if err := doc.DataTo(&visit); err != nil {
-			log.Printf("❌ Error unmarshaling visit: %v", err)
 			continue
 		}
 		visits = append(visits, visit)
 	}
 
-	log.Printf("✅ Retrieved %d visits for user %s", len(visits), userID)
 	return visits, nil
 }
 
@@ -142,13 +134,11 @@ func (vs *VisitService) GetActiveVisitsByUserID(ctx context.Context, userID stri
 			break
 		}
 		if err != nil {
-			log.Printf("❌ Error iterating active visits for user %s: %v", userID, err)
 			return nil, fmt.Errorf("failed to get active visits: %v", err)
 		}
 
 		var visit models.Visit
 		if err := doc.DataTo(&visit); err != nil {
-			log.Printf("❌ Error unmarshaling visit: %v", err)
 			continue
 		}
 
@@ -193,13 +183,11 @@ func (vs *VisitService) GetCompletedVisitsByUserID(ctx context.Context, userID s
 			break
 		}
 		if err != nil {
-			log.Printf("❌ Error iterating completed visits for user %s: %v", userID, err)
 			return nil, fmt.Errorf("failed to get completed visits: %v", err)
 		}
 
 		var visit models.Visit
 		if err := doc.DataTo(&visit); err != nil {
-			log.Printf("❌ Error unmarshaling visit: %v", err)
 			continue
 		}
 
@@ -263,11 +251,9 @@ func (vs *VisitService) UpdateVisit(ctx context.Context, visitID string, updateR
 
 	_, err := docRef.Set(ctx, updates, firestore.MergeAll)
 	if err != nil {
-		log.Printf("❌ Error updating visit %s: %v", visitID, err)
 		return fmt.Errorf("failed to update visit: %v", err)
 	}
 
-	log.Printf("✅ Visit updated successfully: %s", visitID)
 	return nil
 }
 
@@ -275,11 +261,9 @@ func (vs *VisitService) UpdateVisit(ctx context.Context, visitID string, updateR
 func (vs *VisitService) DeleteVisit(ctx context.Context, visitID string) error {
 	_, err := vs.client.Collection("visits").Doc(visitID).Delete(ctx)
 	if err != nil {
-		log.Printf("❌ Error deleting visit %s: %v", visitID, err)
 		return fmt.Errorf("failed to delete visit: %v", err)
 	}
 
-	log.Printf("✅ Visit deleted successfully: %s", visitID)
 	return nil
 }
 
@@ -287,34 +271,46 @@ func (vs *VisitService) DeleteVisit(ctx context.Context, visitID string) error {
 func (vs *VisitService) GetPendingReminders() ([]models.Visit, error) {
 	ctx := context.Background()
 
-	// Get visits that are scheduled, not completed, and haven't been notified yet
+	// Get visits that are scheduled and not completed
+	// We'll filter notifiedAt in code since Firestore can't easily query for zero/null time
 	iter := vs.client.Collection("visits").
 		Where("status", "==", "scheduled").
 		Where("isCompleted", "==", false).
-		Where("notifiedAt", "==", time.Time{}).
 		Documents(ctx)
 	defer iter.Stop()
 
 	var visits []models.Visit
+
+	// Use IST timezone for all comparisons
+	nowIST := time.Now().In(IST)
+
 	for {
 		doc, err := iter.Next()
 		if err == iterator.Done {
 			break
 		}
 		if err != nil {
-			log.Printf("❌ Error getting pending reminders: %v", err)
 			return nil, err
 		}
 
 		var visit models.Visit
 		if err := doc.DataTo(&visit); err != nil {
-			log.Printf("❌ Error unmarshaling visit: %v", err)
 			continue
 		}
 
-		// Check if reminder time has passed
-		reminderTime := visit.VisitDate.Add(-time.Duration(visit.ReminderTime) * time.Minute)
-		if time.Now().After(reminderTime) {
+		// Skip if already notified
+		if !visit.NotifiedAt.IsZero() {
+			continue
+		}
+
+		// Convert visit date to IST for comparison
+		visitDateIST := visit.VisitDate.In(IST)
+
+		// Calculate reminder time (visit time - reminder minutes)
+		reminderTime := visitDateIST.Add(-time.Duration(visit.ReminderTime) * time.Minute)
+
+		// Check if it's time to send reminder (now >= reminderTime)
+		if nowIST.After(reminderTime) || nowIST.Equal(reminderTime) {
 			visits = append(visits, visit)
 		}
 	}
@@ -335,7 +331,6 @@ func (vs *VisitService) MarkAsNotified(ctx context.Context, visitID string) erro
 		},
 	})
 	if err != nil {
-		log.Printf("❌ Error marking visit as notified %s: %v", visitID, err)
 		return fmt.Errorf("failed to mark visit as notified: %v", err)
 	}
 

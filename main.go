@@ -50,7 +50,6 @@ func main() {
 	adminNotificationHandler := handlers.NewAdminNotificationHandler(config.GetFirestoreClient())
 	siteSettingsHandler := handlers.NewSiteSettingsHandler(config.GetFirestoreClient())
 	agreementHandler := handlers.NewAgreementHandler(config.GetFirestoreClient())
-	documentHandler := handlers.NewDocumentHandler(config.GetFirestoreClient(), uploadHandler.GetR2Service())
 	if err != nil {
 		log.Printf("⚠️ Warning: Failed to initialize upload handler: %v", err)
 		log.Println("📁 File uploads will use Firebase Storage as fallback")
@@ -360,55 +359,6 @@ func main() {
 		}
 		if r.Method == "PUT" || r.Method == "PATCH" {
 			siteSettingsHandler.UpdateQuote(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	// Document routes
-	http.HandleFunc("/documents", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "POST" {
-			documentHandler.CreateDocument(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	http.HandleFunc("/documents/property/", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		if r.Method == "GET" {
-			documentHandler.GetDocumentsByProperty(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	http.HandleFunc("/documents/", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		// Extract path after /documents/
-		path := strings.TrimPrefix(r.URL.Path, "/documents/")
-		if path == "" {
-			http.Error(w, "Document ID required", http.StatusBadRequest)
-			return
-		}
-		// Skip if it's a property request (handled by /documents/property/)
-		if strings.HasPrefix(path, "property/") {
-			return
-		}
-		if r.Method == "GET" {
-			documentHandler.GetDocumentByID(w, r)
-		} else if r.Method == "DELETE" {
-			documentHandler.DeleteDocument(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

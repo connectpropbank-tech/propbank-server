@@ -215,10 +215,11 @@ func (s *AdminNotificationService) GetUnreadNotifications(ctx context.Context) (
 	return notifications, nil
 }
 
-// MarkAsRead marks a notification as read
+// MarkAsRead marks a notification as read and sets resolvedAt timestamp
 func (s *AdminNotificationService) MarkAsRead(ctx context.Context, notificationID string) error {
 	collection := s.client.Collection("admin_notifications")
 
+	now := time.Now()
 	// Update the notification
 	_, err := collection.Doc(notificationID).Update(ctx, []firestore.Update{
 		{
@@ -226,8 +227,12 @@ func (s *AdminNotificationService) MarkAsRead(ctx context.Context, notificationI
 			Value: true,
 		},
 		{
+			Path:  "resolvedAt",
+			Value: now,
+		},
+		{
 			Path:  "updatedAt",
-			Value: time.Now(),
+			Value: now,
 		},
 	})
 

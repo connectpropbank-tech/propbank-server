@@ -29,16 +29,17 @@ type AdminNotification struct {
 	ServiceComment string `firestore:"serviceComment,omitempty" json:"serviceComment,omitempty"`
 	ServiceImage   string `firestore:"serviceImage,omitempty" json:"serviceImage,omitempty"`
 	// General inquiry specific fields
-	InquiryType  string    `firestore:"inquiryType,omitempty" json:"inquiryType,omitempty"`
-	PropertyType string    `firestore:"propertyType,omitempty" json:"propertyType,omitempty"`
-	RequestVisit bool      `firestore:"requestVisit,omitempty" json:"requestVisit,omitempty"`
-	VisitDate    string    `firestore:"visitDate,omitempty" json:"visitDate,omitempty"`
-	VisitTime    string    `firestore:"visitTime,omitempty" json:"visitTime,omitempty"`
-	Timestamp    time.Time `firestore:"timestamp" json:"timestamp"`
-	IsRead       bool      `firestore:"isRead" json:"isRead"`
-	Priority     string    `firestore:"priority" json:"priority"`
-	CreatedAt    time.Time `firestore:"createdAt" json:"createdAt"`
-	UpdatedAt    time.Time `firestore:"updatedAt" json:"updatedAt"`
+	InquiryType  string     `firestore:"inquiryType,omitempty" json:"inquiryType,omitempty"`
+	PropertyType string     `firestore:"propertyType,omitempty" json:"propertyType,omitempty"`
+	RequestVisit bool       `firestore:"requestVisit,omitempty" json:"requestVisit,omitempty"`
+	VisitDate    string     `firestore:"visitDate,omitempty" json:"visitDate,omitempty"`
+	VisitTime    string     `firestore:"visitTime,omitempty" json:"visitTime,omitempty"`
+	Timestamp    time.Time  `firestore:"timestamp" json:"timestamp"`
+	IsRead       bool       `firestore:"isRead" json:"isRead"`
+	ResolvedAt   *time.Time `firestore:"resolvedAt,omitempty" json:"resolvedAt,omitempty"` // Timestamp when marked as resolved
+	Priority     string     `firestore:"priority" json:"priority"`
+	CreatedAt    time.Time  `firestore:"createdAt" json:"createdAt"`
+	UpdatedAt    time.Time  `firestore:"updatedAt" json:"updatedAt"`
 }
 
 // CreateAdminNotificationRequest represents the request body for creating an admin notification

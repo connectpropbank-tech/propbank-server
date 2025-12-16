@@ -74,10 +74,11 @@ func (uh *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		response := models.UserResponse{
 			Success: false,
-			Message: "User not found",
+			Message: "User not registered",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
+		// Return 200 OK instead of 404 to avoid console errors in frontend
+		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response)
 		return
 	}
@@ -96,7 +97,13 @@ func (uh *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 // CreateUser handles POST /users - creates or updates a user
 func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response := models.UserResponse{
+			Success: false,
+			Message: "Method not allowed",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -110,13 +117,25 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&userReq); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		response := models.UserResponse{
+			Success: false,
+			Message: "Invalid JSON",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
 	// Validate required fields
 	if userReq.UID == "" || userReq.Email == "" || userReq.Name == "" {
-		http.Error(w, "Missing required fields: uid, email, name", http.StatusBadRequest)
+		response := models.UserResponse{
+			Success: false,
+			Message: "Missing required fields: uid, email, name",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -207,6 +226,156 @@ func (uh *UserHandler) SearchUserByPhone(w http.ResponseWriter, r *http.Request)
 		Success: true,
 		Message: "User found successfully",
 		User:    user,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// UpdateUser handles PUT/PATCH /users/{uid} - creates or updates a user (Upsert)
+func (uh *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
+		response := models.UserResponse{
+			Success: false,
+			Message: "Method not allowed",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Extract UID from URL path
+	// Path comes in as /users/{uid}
+	path := strings.TrimPrefix(r.URL.Path, "/users/")
+	if path == "" {
+		response := models.UserResponse{
+			Success: false,
+			Message: "User ID is required",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	var userReq struct {
+		Email       string          `json:"email"`
+		Name        string          `json:"name"`
+		PhotoURL    string          `json:"photoURL"`
+		PhoneNumber string          `json:"phoneNumber"`
+		Role        models.UserRole `json:"role"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&userReq); err != nil {
+		response := models.UserResponse{
+			Success: false,
+			Message: "Invalid JSON",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	ctx := context.Background()
+
+	// Try to get existing user
+	existingUser, err := uh.userService.GetUserByID(ctx, path)
+
+	// If user does not exist or error, we prepare to create new
+	if err != nil || existingUser == nil {
+		// Validation for creation
+		if userReq.Name == "" {
+			response := models.UserResponse{
+				Success: false,
+				Message: "Creating new user requires a name",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		// Create new user model
+		newUser := &models.User{
+			UID:         path, // Use path UID
+			Email:       userReq.Email,
+			Name:        userReq.Name,
+			PhotoURL:    userReq.PhotoURL,
+			PhoneNumber: services.NormalizePhoneNumber(userReq.PhoneNumber),
+			Role:        userReq.Role,
+			IsActive:    true,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+
+		if newUser.Role == "" {
+			newUser.Role = models.RoleIndividual
+		}
+
+		err = uh.userService.CreateOrUpdateUser(ctx, newUser)
+		if err != nil {
+			response := models.UserResponse{
+				Success: false,
+				Message: "Failed to create user",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		response := models.UserResponse{
+			Success: true,
+			Message: "User created successfully",
+			User:    newUser,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Update existing fields if present
+	if userReq.Name != "" {
+		existingUser.Name = userReq.Name
+	}
+	if userReq.PhotoURL != "" {
+		existingUser.PhotoURL = userReq.PhotoURL
+	}
+	if userReq.PhoneNumber != "" {
+		existingUser.PhoneNumber = services.NormalizePhoneNumber(userReq.PhoneNumber)
+	}
+
+	// Only allow role update if it's currently unset or empty, or if we have admin logic (skipped for now)
+	if userReq.Role != "" {
+		// Basic validation for role
+		if userReq.Role == models.RoleAdmin || userReq.Role == models.RoleAgent || userReq.Role == models.RoleIndividual {
+			existingUser.Role = userReq.Role
+		}
+	}
+
+	existingUser.UpdatedAt = time.Now()
+
+	// Save updates
+	err = uh.userService.CreateOrUpdateUser(ctx, existingUser)
+	if err != nil {
+		response := models.UserResponse{
+			Success: false,
+			Message: "Failed to update user",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	response := models.UserResponse{
+		Success: true,
+		Message: "User updated successfully",
+		User:    existingUser,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

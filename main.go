@@ -69,7 +69,7 @@ func main() {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"message": "ShoPROP Backend API is running!", "status": "success"}`)
+		fmt.Fprintf(w, `{"message": "ShoPROP Backend API is running! (v2)", "status": "success"}`)
 	})
 
 	// Auth routes
@@ -113,14 +113,6 @@ func main() {
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
-	})
-
-	http.HandleFunc("/users/", func(w http.ResponseWriter, r *http.Request) {
-		enableCORS(w, r)
-		if r.Method == "OPTIONS" {
-			return
-		}
-		userHandler.GetUser(w, r)
 	})
 
 	// Property routes
@@ -176,24 +168,33 @@ func main() {
 		}
 
 		// Skip if this is the /properties/tenant or /properties/search route
-		// These are handled by their own handlers
+		// These are handled by their own handlers (ServeMux matches longest pattern)
+		// But keeping this check for safety if needed, or allowing fallthrough
 		path := r.URL.Path
 		if strings.HasPrefix(path, "/properties/tenant") || strings.HasPrefix(path, "/properties/search") {
-			// Forward to the correct handler
-			if strings.HasPrefix(path, "/properties/tenant") {
-				propertyHandler.GetPropertiesByTenant(w, r)
-				return
-			}
-			if strings.HasPrefix(path, "/properties/search") {
-				propertyHandler.SearchProperties(w, r)
-				return
-			}
+			return
 		}
 
 		if r.Method == "GET" {
 			propertyHandler.GetProperty(w, r)
 		} else if r.Method == "PUT" || r.Method == "PATCH" {
 			propertyHandler.UpdateProperty(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// User By ID Routes (GET, PUT, PATCH)
+	http.HandleFunc("/users/", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+
+		if r.Method == "GET" {
+			userHandler.GetUser(w, r)
+		} else if r.Method == "PUT" || r.Method == "PATCH" {
+			userHandler.UpdateUser(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

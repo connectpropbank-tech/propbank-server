@@ -165,8 +165,9 @@ type Property struct {
 	UnitCondition         string          `json:"unitCondition" firestore:"unitCondition"`
 	MaintenanceToBePaidBy string          `json:"maintenanceToBePaidBy" firestore:"maintenanceToBePaidBy"`
 	ProjectCondition      string          `json:"projectCondition" firestore:"projectCondition"` // New Project, Ready Project, Preleased
-	RentalStatus          string          `json:"rentalStatus" firestore:"rentalStatus"`         // available, rented
-	AgreementStatus       string          `json:"agreementStatus" firestore:"agreementStatus"`   // active, terminated, renewed
+	PossessionDate        string          `json:"possessionDate" firestore:"possessionDate"`
+	RentalStatus          string          `json:"rentalStatus" firestore:"rentalStatus"`       // available, rented
+	AgreementStatus       string          `json:"agreementStatus" firestore:"agreementStatus"` // active, terminated, renewed
 	FurnishedChecklist    []FurnishedItem `json:"furnishedChecklist" firestore:"furnishedChecklist"`
 
 	// Legacy fields for compatibility
@@ -241,6 +242,7 @@ type PropertyResponse struct {
 	UnitCondition         string          `json:"unitCondition"`
 	MaintenanceToBePaidBy string          `json:"maintenanceToBePaidBy"`
 	ProjectCondition      string          `json:"projectCondition"`
+	PossessionDate        string          `json:"possessionDate"`
 	RentalStatus          string          `json:"rentalStatus"`
 	FurnishedChecklist    []FurnishedItem `json:"furnishedChecklist"`
 	Images                []string        `json:"images"`
@@ -316,6 +318,7 @@ type CreatePropertyRequest struct {
 	UnitCondition         string          `json:"unitCondition"`
 	MaintenanceToBePaidBy string          `json:"maintenanceToBePaidBy"`
 	ProjectCondition      string          `json:"projectCondition"`
+	PossessionDate        string          `json:"possessionDate"`
 	RentalStatus          string          `json:"rentalStatus"`
 	FurnishedChecklist    []FurnishedItem `json:"furnishedChecklist"`
 

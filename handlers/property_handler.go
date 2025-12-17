@@ -145,6 +145,8 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		// Unit Condition & Maintenance
 		UnitCondition:         req.UnitCondition,
 		MaintenanceToBePaidBy: req.MaintenanceToBePaidBy,
+		ProjectCondition:      req.ProjectCondition,
+		PossessionDate:        req.PossessionDate,
 		RentalStatus:          req.RentalStatus,
 		FurnishedChecklist:    req.FurnishedChecklist,
 
@@ -218,6 +220,7 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 			UnitCondition:         createdProperty.UnitCondition,
 			MaintenanceToBePaidBy: createdProperty.MaintenanceToBePaidBy,
 			ProjectCondition:      createdProperty.ProjectCondition,
+			PossessionDate:        createdProperty.PossessionDate,
 			RentalStatus:          createdProperty.RentalStatus,
 			FurnishedChecklist:    createdProperty.FurnishedChecklist,
 			Images:                createdProperty.Images,
@@ -309,6 +312,7 @@ func (h *PropertyHandler) GetAllProperties(w http.ResponseWriter, r *http.Reques
 			UnitCondition:         property.UnitCondition,
 			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
 			ProjectCondition:      property.ProjectCondition,
+			PossessionDate:        property.PossessionDate,
 			RentalStatus:          property.RentalStatus,
 			FurnishedChecklist:    property.FurnishedChecklist,
 			Images:                property.Images,
@@ -460,6 +464,7 @@ func (h *PropertyHandler) GetPropertiesByOwner(w http.ResponseWriter, r *http.Re
 			UnitCondition:         property.UnitCondition,
 			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
 			ProjectCondition:      property.ProjectCondition,
+			PossessionDate:        property.PossessionDate,
 			RentalStatus:          property.RentalStatus,
 			FurnishedChecklist:    property.FurnishedChecklist,
 			Images:                property.Images,
@@ -530,6 +535,7 @@ func (h *PropertyHandler) GetPropertiesByOwner(w http.ResponseWriter, r *http.Re
 				UnitCondition:         property.UnitCondition,
 				MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
 				ProjectCondition:      property.ProjectCondition,
+				PossessionDate:        property.PossessionDate,
 				RentalStatus:          property.RentalStatus,
 				FurnishedChecklist:    property.FurnishedChecklist,
 				Images:                property.Images,
@@ -634,6 +640,7 @@ func (h *PropertyHandler) GetPropertiesByTenant(w http.ResponseWriter, r *http.R
 			UnitCondition:         property.UnitCondition,
 			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
 			ProjectCondition:      property.ProjectCondition,
+			PossessionDate:        property.PossessionDate,
 			RentalStatus:          property.RentalStatus,
 			FurnishedChecklist:    property.FurnishedChecklist,
 			Images:                property.Images,
@@ -728,6 +735,7 @@ func (h *PropertyHandler) GetArchivedPropertiesByOwner(w http.ResponseWriter, r 
 			UnitCondition:         property.UnitCondition,
 			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
 			ProjectCondition:      property.ProjectCondition,
+			PossessionDate:        property.PossessionDate,
 			RentalStatus:          property.RentalStatus,
 			FurnishedChecklist:    property.FurnishedChecklist,
 			Images:                property.Images,
@@ -978,6 +986,8 @@ func (h *PropertyHandler) SearchProperties(w http.ResponseWriter, r *http.Reques
 			PropertyType:     property.PropertyType,
 			ListingType:      property.ListingType,
 			ProjectCondition: property.ProjectCondition,
+			PossessionDate:   property.PossessionDate,
+			RentalStatus:     property.RentalStatus,
 			Bedrooms:         property.Bedrooms,
 			Bathrooms:        property.Bathrooms,
 			SquareFeet:       property.SquareFeet,
@@ -991,7 +1001,6 @@ func (h *PropertyHandler) SearchProperties(w http.ResponseWriter, r *http.Reques
 			IsActive:         property.IsActive,
 			CreatedAt:        property.CreatedAt,
 			UpdatedAt:        property.UpdatedAt,
-			RentalStatus:     property.RentalStatus,
 		})
 	}
 

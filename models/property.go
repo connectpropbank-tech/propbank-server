@@ -165,6 +165,7 @@ type Property struct {
 	UnitCondition         string          `json:"unitCondition" firestore:"unitCondition"`
 	MaintenanceToBePaidBy string          `json:"maintenanceToBePaidBy" firestore:"maintenanceToBePaidBy"`
 	ProjectCondition      string          `json:"projectCondition" firestore:"projectCondition"` // New Project, Ready Project, Preleased
+	InternalImages        []string        `json:"internalImages" firestore:"internalImages"`
 	PossessionDate        string          `json:"possessionDate" firestore:"possessionDate"`
 	RentalStatus          string          `json:"rentalStatus" firestore:"rentalStatus"`       // available, rented
 	AgreementStatus       string          `json:"agreementStatus" firestore:"agreementStatus"` // active, terminated, renewed
@@ -242,6 +243,7 @@ type PropertyResponse struct {
 	UnitCondition         string          `json:"unitCondition"`
 	MaintenanceToBePaidBy string          `json:"maintenanceToBePaidBy"`
 	ProjectCondition      string          `json:"projectCondition"`
+	InternalImages        []string        `json:"internalImages"`
 	PossessionDate        string          `json:"possessionDate"`
 	RentalStatus          string          `json:"rentalStatus"`
 	FurnishedChecklist    []FurnishedItem `json:"furnishedChecklist"`
@@ -318,6 +320,7 @@ type CreatePropertyRequest struct {
 	UnitCondition         string          `json:"unitCondition"`
 	MaintenanceToBePaidBy string          `json:"maintenanceToBePaidBy"`
 	ProjectCondition      string          `json:"projectCondition"`
+	InternalImages        []string        `json:"internalImages"`
 	PossessionDate        string          `json:"possessionDate"`
 	RentalStatus          string          `json:"rentalStatus"`
 	FurnishedChecklist    []FurnishedItem `json:"furnishedChecklist"`

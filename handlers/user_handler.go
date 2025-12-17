@@ -297,6 +297,16 @@ func (uh *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(response)
 			return
 		}
+		if userReq.Email == "" {
+			response := models.UserResponse{
+				Success: false,
+				Message: "Creating new user requires an email",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
 
 		// Create new user model
 		newUser := &models.User{
@@ -344,6 +354,9 @@ func (uh *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if userReq.PhotoURL != "" {
 		existingUser.PhotoURL = userReq.PhotoURL
+	}
+	if userReq.Email != "" {
+		existingUser.Email = userReq.Email
 	}
 	if userReq.PhoneNumber != "" {
 		existingUser.PhoneNumber = services.NormalizePhoneNumber(userReq.PhoneNumber)

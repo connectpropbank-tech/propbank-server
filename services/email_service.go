@@ -669,3 +669,93 @@ func (es *EmailService) buildAgreementTerminationEmail(data AgreementTermination
 		data.AgreementEndDate,
 	)
 }
+
+// RentPaymentReminderEmailData contains data for rent payment reminder email
+type RentPaymentReminderEmailData struct {
+	TenantName      string
+	TenantEmail     string
+	PropertyTitle   string
+	PropertyAddress string
+	MonthlyRent     string
+	DueDate         string
+	PaymentLink     string // Optional
+}
+
+// SendRentPaymentReminder sends email to tenant for rent payment reminder
+func (es *EmailService) SendRentPaymentReminder(data RentPaymentReminderEmailData) error {
+	subject := "🏠 Rent Payment Due Reminder - Propbank"
+	body := es.buildRentPaymentReminderEmail(data)
+
+	if data.TenantEmail != "" {
+		return es.sendEmail(data.TenantEmail, subject, body)
+	}
+	return nil
+}
+
+// buildRentPaymentReminderEmail builds the HTML email for rent payment reminder
+func (es *EmailService) buildRentPaymentReminderEmail(data RentPaymentReminderEmailData) string {
+	return fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #4f46e5 0%%, #818cf8 100%%); padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
+                <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 14px;">Rent Payment Reminder</p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 30px;">
+                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                    This is a friendly reminder that your rent payment for the following property is due today.
+                </p>
+                
+                <!-- Payment Details -->
+                <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; padding: 25px; margin-bottom: 25px; text-align: center;">
+                    <p style="color: #166534; font-size: 14px; margin: 0 0 5px 0; text-transform: uppercase; font-weight: 600;">Amount Due</p>
+                    <h1 style="color: #15803d; margin: 0; font-size: 36px;">₹%s</h1>
+                    <p style="color: #166534; font-size: 14px; margin: 5px 0 0 0;">Due Date: %s of every month</p>
+                </div>
+
+                <!-- Property Details -->
+                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                    <tr>
+                        <td style="padding: 20px;">
+                            <h3 style="color: #1a365d; margin: 0 0 15px 0; font-size: 16px;">🏢 Property Details</h3>
+                            <p style="margin: 5px 0;"><strong>Property:</strong> %s</p>
+                            <p style="margin: 5px 0;"><strong>Address:</strong> %s</p>
+                        </td>
+                    </tr>
+                </table>
+                
+                <p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin: 25px 0 0 0;">
+                    Please ensure the payment is made to the property owner to avoid any late fees.
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="background-color: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="color: #64748b; font-size: 12px; margin: 0;">
+                    This email was sent by Propbank. Contact us at 
+                    <a href="mailto:connectpropbank@gmail.com" style="color: #2563eb;">connectpropbank@gmail.com</a>
+                </p>
+                <p style="color: #94a3b8; font-size: 11px; margin: 10px 0 0 0;">© 2025 Propbank. All rights reserved.</p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`,
+		data.TenantName,
+		data.MonthlyRent,
+		data.DueDate,
+		data.PropertyTitle,
+		data.PropertyAddress,
+	)
+}

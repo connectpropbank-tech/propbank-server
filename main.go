@@ -57,7 +57,8 @@ func main() {
 	emailService := services.NewEmailService()
 	visitService := services.NewVisitService(config.GetFirestoreClient())
 	userService := services.NewUserService(config.GetFirestoreClient())
-	reminderScheduler := services.NewReminderScheduler(emailService, visitService, userService)
+	propertyService := services.NewPropertyService(config.GetFirestoreClient())
+	reminderScheduler := services.NewReminderScheduler(emailService, visitService, userService, propertyService)
 
 	// Start the reminder scheduler (checks every minute)
 	reminderScheduler.Start()

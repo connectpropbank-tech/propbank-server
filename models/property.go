@@ -58,8 +58,9 @@ type TenantInfo struct {
 	MonthlyIncome    string `json:"monthlyIncome" firestore:"monthlyIncome"`
 
 	// Additional Information
-	Notes    string `json:"notes" firestore:"notes"`
-	IsActive bool   `json:"isActive" firestore:"isActive"`
+	Notes                         string    `json:"notes" firestore:"notes"`
+	IsActive                      bool      `json:"isActive" firestore:"isActive"`
+	LastRentPaymentReminderSentAt time.Time `json:"lastRentPaymentReminderSentAt" firestore:"lastRentPaymentReminderSentAt"`
 
 	// System fields
 	CreatedAt time.Time `json:"createdAt" firestore:"createdAt"`

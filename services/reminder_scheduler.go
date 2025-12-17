@@ -177,6 +177,9 @@ func (rs *ReminderScheduler) checkAndSendRentReminders() {
 							// Update LastRentPaymentReminderSentAt
 							property.Tenants[i].LastRentPaymentReminderSentAt = today
 							updated = true
+							fmt.Printf("Sent rent reminder to %s for property %s\n", tenant.Email, property.Title)
+						} else {
+							fmt.Printf("Failed to send rent reminder to %s: %v\n", tenant.Email, err)
 						}
 					}
 				}
@@ -207,7 +210,9 @@ func (rs *ReminderScheduler) checkAndSendRentReminders() {
 
 			_, err := rs.propertyService.UpdateProperty(ctx, property.ID, updates)
 			if err != nil {
-				// logging error would be good here
+				fmt.Printf("Failed to update property %s after sending reminder: %v\n", property.ID, err)
+			} else {
+				fmt.Printf("Updated property %s with reminder sent status\n", property.ID)
 			}
 		}
 	}

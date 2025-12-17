@@ -4,6 +4,14 @@ import (
 	"time"
 )
 
+// RentScheduleItem represents a single row in the monthly rent schedule
+type RentScheduleItem struct {
+	Year     string `json:"year" firestore:"year"`         // e.g. "1st Year"
+	Amount   string `json:"amount" firestore:"amount"`     // Monthly Rent Amount
+	FromDate string `json:"fromDate" firestore:"fromDate"` // Rent From Date
+	ToDate   string `json:"toDate" firestore:"toDate"`     // Rent To Date
+}
+
 // SpouseInfo represents spouse information for married tenants
 type SpouseInfo struct {
 	FirstName        string `json:"firstName" firestore:"firstName"`
@@ -58,11 +66,12 @@ type TenantInfo struct {
 	MonthlyIncome    string `json:"monthlyIncome" firestore:"monthlyIncome"`
 
 	// Additional Information
-	Notes                          string    `json:"notes" firestore:"notes"`
-	IsActive                       bool      `json:"isActive" firestore:"isActive"`
-	NoticePeriod                   string    `json:"noticePeriod" firestore:"noticePeriod"`
-	LastRentPaymentReminderSentAt  time.Time `json:"lastRentPaymentReminderSentAt" firestore:"lastRentPaymentReminderSentAt"`
-	LastNoticePeriodReminderSentAt time.Time `json:"lastNoticePeriodReminderSentAt" firestore:"lastNoticePeriodReminderSentAt"`
+	Notes                          string             `json:"notes" firestore:"notes"`
+	IsActive                       bool               `json:"isActive" firestore:"isActive"`
+	NoticePeriod                   string             `json:"noticePeriod" firestore:"noticePeriod"`
+	LastRentPaymentReminderSentAt  time.Time          `json:"lastRentPaymentReminderSentAt" firestore:"lastRentPaymentReminderSentAt"`
+	LastNoticePeriodReminderSentAt time.Time          `json:"lastNoticePeriodReminderSentAt" firestore:"lastNoticePeriodReminderSentAt"`
+	RentSchedule                   []RentScheduleItem `json:"rentSchedule" firestore:"rentSchedule"`
 
 	// System fields
 	CreatedAt time.Time `json:"createdAt" firestore:"createdAt"`
@@ -141,14 +150,15 @@ type Property struct {
 	SellingPrice string `json:"sellingPrice" firestore:"sellingPrice"` // For sell
 
 	// Monthly Rent Details
-	MonthlyRent1stYear string `json:"monthlyRent1stYear" firestore:"monthlyRent1stYear"`
-	MonthlyRent2ndYear string `json:"monthlyRent2ndYear" firestore:"monthlyRent2ndYear"`
-	MonthlyRent3rdYear string `json:"monthlyRent3rdYear" firestore:"monthlyRent3rdYear"`
-	MonthlyRent4thYear string `json:"monthlyRent4thYear" firestore:"monthlyRent4thYear"`
-	RentFromDate1      string `json:"rentFromDate1" firestore:"rentFromDate1"`
-	RentToDate1        string `json:"rentToDate1" firestore:"rentToDate1"`
-	RentFromDate2      string `json:"rentFromDate2" firestore:"rentFromDate2"`
-	RentToDate2        string `json:"rentToDate2" firestore:"rentToDate2"`
+	MonthlyRent1stYear string             `json:"monthlyRent1stYear" firestore:"monthlyRent1stYear"`
+	MonthlyRent2ndYear string             `json:"monthlyRent2ndYear" firestore:"monthlyRent2ndYear"`
+	MonthlyRent3rdYear string             `json:"monthlyRent3rdYear" firestore:"monthlyRent3rdYear"`
+	MonthlyRent4thYear string             `json:"monthlyRent4thYear" firestore:"monthlyRent4thYear"`
+	RentFromDate1      string             `json:"rentFromDate1" firestore:"rentFromDate1"`
+	RentToDate1        string             `json:"rentToDate1" firestore:"rentToDate1"`
+	RentFromDate2      string             `json:"rentFromDate2" firestore:"rentFromDate2"`
+	RentToDate2        string             `json:"rentToDate2" firestore:"rentToDate2"`
+	RentSchedule       []RentScheduleItem `json:"rentSchedule" firestore:"rentSchedule"`
 
 	// Payment Details
 	PaymentDueDate       string `json:"paymentDueDate" firestore:"paymentDueDate"`
@@ -204,69 +214,70 @@ type Property struct {
 }
 
 type PropertyResponse struct {
-	ID                    string          `json:"id"`
-	Title                 string          `json:"title"`
-	Description           string          `json:"description"`
-	Price                 float64         `json:"price"`
-	Address               string          `json:"address"`
-	City                  string          `json:"city"`
-	State                 string          `json:"state"`
-	ZipCode               string          `json:"zipCode"`
-	PropertyType          string          `json:"propertyType"`
-	ListingType           string          `json:"listingType"`
-	Configuration         string          `json:"configuration"`
-	UnitNumber            string          `json:"unitNumber"`
-	Floor                 string          `json:"floor"`
-	Location              string          `json:"location"`
-	CarpetArea            string          `json:"carpetArea"`
-	ConstructedArea       string          `json:"constructedArea"`
-	SquareFeet            int             `json:"squareFeet"`
-	TenantName            string          `json:"tenantName"`
-	PersonName            string          `json:"personName"`
-	MobileNumber          string          `json:"mobileNumber"`
-	PrimaryNo             string          `json:"primaryNo"`
-	UltNo                 string          `json:"ultNo"`
-	MonthlyRent           string          `json:"monthlyRent"`
-	SellingPrice          string          `json:"sellingPrice"`
-	MonthlyRent1stYear    string          `json:"monthlyRent1stYear"`
-	MonthlyRent2ndYear    string          `json:"monthlyRent2ndYear"`
-	MonthlyRent3rdYear    string          `json:"monthlyRent3rdYear"`
-	MonthlyRent4thYear    string          `json:"monthlyRent4thYear"`
-	RentFromDate1         string          `json:"rentFromDate1"`
-	RentToDate1           string          `json:"rentToDate1"`
-	RentFromDate2         string          `json:"rentFromDate2"`
-	RentToDate2           string          `json:"rentToDate2"`
-	PaymentDueDate        string          `json:"paymentDueDate"`
-	EscalationPercentage  string          `json:"escalationPercentage"`
-	EscalationAmount      string          `json:"escalationAmount"`
-	SecurityDeposit       string          `json:"securityDeposit"`
-	AgreementPeriod       string          `json:"agreementPeriod"`
-	AgreementStartDate    string          `json:"agreementStartDate"`
-	AgreementEndDate      string          `json:"agreementEndDate"`
-	NoticePeriod          string          `json:"noticePeriod"`
-	LockInPeriod          string          `json:"lockInPeriod"`
-	UnitCondition         string          `json:"unitCondition"`
-	MaintenanceToBePaidBy string          `json:"maintenanceToBePaidBy"`
-	ProjectCondition      string          `json:"projectCondition"`
-	InternalImages        []string        `json:"internalImages"`
-	PossessionDate        string          `json:"possessionDate"`
-	RentalStatus          string          `json:"rentalStatus"`
-	FurnishedChecklist    []FurnishedItem `json:"furnishedChecklist"`
-	Images                []string        `json:"images"`
-	SpecificComments      string          `json:"specificComments"`
-	Tenants               []TenantInfo    `json:"tenants"`
-	Buyers                []BuyerInfo     `json:"buyers"`
-	OwnerUID              string          `json:"ownerUID"`
-	OwnerName             string          `json:"ownerName"`
-	OwnerEmail            string          `json:"ownerEmail"`
-	WantToSell            bool            `json:"wantToSell"` // Toggle for "Want to Sell?" - can be toggled ON/OFF
-	Status                string          `json:"status"`     // "active" or "inactive"
-	IsActive              bool            `json:"isActive"`   // Legacy field
-	CreatedAt             time.Time       `json:"createdAt"`
-	UpdatedAt             time.Time       `json:"updatedAt"`
-	Bedrooms              int             `json:"bedrooms"`
-	Bathrooms             float64         `json:"bathrooms"`
-	UserRole              string          `json:"userRole,omitempty"` // "owner" or "tenant" - indicates the current user's relationship to the property
+	ID                    string             `json:"id"`
+	Title                 string             `json:"title"`
+	Description           string             `json:"description"`
+	Price                 float64            `json:"price"`
+	Address               string             `json:"address"`
+	City                  string             `json:"city"`
+	State                 string             `json:"state"`
+	ZipCode               string             `json:"zipCode"`
+	PropertyType          string             `json:"propertyType"`
+	ListingType           string             `json:"listingType"`
+	Configuration         string             `json:"configuration"`
+	UnitNumber            string             `json:"unitNumber"`
+	Floor                 string             `json:"floor"`
+	Location              string             `json:"location"`
+	CarpetArea            string             `json:"carpetArea"`
+	ConstructedArea       string             `json:"constructedArea"`
+	SquareFeet            int                `json:"squareFeet"`
+	TenantName            string             `json:"tenantName"`
+	PersonName            string             `json:"personName"`
+	MobileNumber          string             `json:"mobileNumber"`
+	PrimaryNo             string             `json:"primaryNo"`
+	UltNo                 string             `json:"ultNo"`
+	MonthlyRent           string             `json:"monthlyRent"`
+	SellingPrice          string             `json:"sellingPrice"`
+	MonthlyRent1stYear    string             `json:"monthlyRent1stYear"`
+	MonthlyRent2ndYear    string             `json:"monthlyRent2ndYear"`
+	MonthlyRent3rdYear    string             `json:"monthlyRent3rdYear"`
+	MonthlyRent4thYear    string             `json:"monthlyRent4thYear"`
+	RentFromDate1         string             `json:"rentFromDate1"`
+	RentToDate1           string             `json:"rentToDate1"`
+	RentFromDate2         string             `json:"rentFromDate2"`
+	RentToDate2           string             `json:"rentToDate2"`
+	RentSchedule          []RentScheduleItem `json:"rentSchedule"`
+	PaymentDueDate        string             `json:"paymentDueDate"`
+	EscalationPercentage  string             `json:"escalationPercentage"`
+	EscalationAmount      string             `json:"escalationAmount"`
+	SecurityDeposit       string             `json:"securityDeposit"`
+	AgreementPeriod       string             `json:"agreementPeriod"`
+	AgreementStartDate    string             `json:"agreementStartDate"`
+	AgreementEndDate      string             `json:"agreementEndDate"`
+	NoticePeriod          string             `json:"noticePeriod"`
+	LockInPeriod          string             `json:"lockInPeriod"`
+	UnitCondition         string             `json:"unitCondition"`
+	MaintenanceToBePaidBy string             `json:"maintenanceToBePaidBy"`
+	ProjectCondition      string             `json:"projectCondition"`
+	InternalImages        []string           `json:"internalImages"`
+	PossessionDate        string             `json:"possessionDate"`
+	RentalStatus          string             `json:"rentalStatus"`
+	FurnishedChecklist    []FurnishedItem    `json:"furnishedChecklist"`
+	Images                []string           `json:"images"`
+	SpecificComments      string             `json:"specificComments"`
+	Tenants               []TenantInfo       `json:"tenants"`
+	Buyers                []BuyerInfo        `json:"buyers"`
+	OwnerUID              string             `json:"ownerUID"`
+	OwnerName             string             `json:"ownerName"`
+	OwnerEmail            string             `json:"ownerEmail"`
+	WantToSell            bool               `json:"wantToSell"` // Toggle for "Want to Sell?" - can be toggled ON/OFF
+	Status                string             `json:"status"`     // "active" or "inactive"
+	IsActive              bool               `json:"isActive"`   // Legacy field
+	CreatedAt             time.Time          `json:"createdAt"`
+	UpdatedAt             time.Time          `json:"updatedAt"`
+	Bedrooms              int                `json:"bedrooms"`
+	Bathrooms             float64            `json:"bathrooms"`
+	UserRole              string             `json:"userRole,omitempty"` // "owner" or "tenant" - indicates the current user's relationship to the property
 }
 
 type CreatePropertyRequest struct {
@@ -298,14 +309,15 @@ type CreatePropertyRequest struct {
 	SellingPrice string `json:"sellingPrice"`
 
 	// Monthly Rent Details
-	MonthlyRent1stYear string `json:"monthlyRent1stYear"`
-	MonthlyRent2ndYear string `json:"monthlyRent2ndYear"`
-	MonthlyRent3rdYear string `json:"monthlyRent3rdYear"`
-	MonthlyRent4thYear string `json:"monthlyRent4thYear"`
-	RentFromDate1      string `json:"rentFromDate1"`
-	RentToDate1        string `json:"rentToDate1"`
-	RentFromDate2      string `json:"rentFromDate2"`
-	RentToDate2        string `json:"rentToDate2"`
+	MonthlyRent1stYear string             `json:"monthlyRent1stYear"`
+	MonthlyRent2ndYear string             `json:"monthlyRent2ndYear"`
+	MonthlyRent3rdYear string             `json:"monthlyRent3rdYear"`
+	MonthlyRent4thYear string             `json:"monthlyRent4thYear"`
+	RentFromDate1      string             `json:"rentFromDate1"`
+	RentToDate1        string             `json:"rentToDate1"`
+	RentFromDate2      string             `json:"rentFromDate2"`
+	RentToDate2        string             `json:"rentToDate2"`
+	RentSchedule       []RentScheduleItem `json:"rentSchedule"`
 
 	// Payment Details
 	PaymentDueDate       string `json:"paymentDueDate"`

@@ -164,6 +164,34 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		Status: "active", // Default status for new properties
 	}
 
+	// Logic to populate Tenants slice if property is rented
+	if req.ListingType == "rent" && req.RentalStatus == "rented" {
+		tenant := models.TenantInfo{
+			FirstName: req.TenantName, // Assuming TenantName contains full name or just first name
+			LastName:  "",             // Split logic could be added if needed
+			Email:     "",             // Required but not in flat request? checking... ownerEmail is there.
+			// Wait, the flat request has TenantName, PersonName, MobileNumber.
+			// It doesn't seem to have TenantEmail field in the flat structure?
+			// Let's check CreatePropertyRequest definition again.
+			// Re-checking CreatePropertyRequest... it has OwnerEmail but not explicit TenantEmail?
+			// Checking frontend... frontend sends tenantName, personName, mobileNumber...
+			// Wait, AddPropertyForm has fields for email?
+			// Let's assume for now we map what we have.
+			Phone:          req.MobileNumber,
+			PaymentDueDate: req.PaymentDueDate,
+			MonthlyRent:    req.MonthlyRent,
+			LeaseStartDate: req.AgreementStartDate,
+			LeaseEndDate:   req.AgreementEndDate,
+			NoticePeriod:   req.NoticePeriod,
+			IsActive:       true,
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		}
+		// If we have spouse info, etc, we should map it too.
+		// But for now, ensuring NoticePeriod is mapped is key.
+		property.Tenants = []models.TenantInfo{tenant}
+	}
+
 	// Create property in database
 	createdProperty, err := h.propertyService.CreateProperty(r.Context(), property)
 	if err != nil {

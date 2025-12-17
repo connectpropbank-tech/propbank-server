@@ -47,6 +47,7 @@ func (rs *ReminderScheduler) Start() {
 		// Run immediately on start
 		rs.checkAndSendReminders()
 		rs.checkAndSendRentReminders()
+		rs.checkAndSendNoticePeriodReminders() // Also run this on start
 
 		for {
 			select {
@@ -54,6 +55,7 @@ func (rs *ReminderScheduler) Start() {
 				rs.checkAndSendReminders()
 			case <-rs.rentTicker.C:
 				rs.checkAndSendRentReminders()
+				rs.checkAndSendNoticePeriodReminders()
 			case <-rs.stopChan:
 				rs.ticker.Stop()
 				rs.rentTicker.Stop()
@@ -213,6 +215,110 @@ func (rs *ReminderScheduler) checkAndSendRentReminders() {
 				fmt.Printf("Failed to update property %s after sending reminder: %v\n", property.ID, err)
 			} else {
 				fmt.Printf("Updated property %s with reminder sent status\n", property.ID)
+			}
+		}
+	}
+}
+
+// checkAndSendNoticePeriodReminders checks if notice period should start today
+func (rs *ReminderScheduler) checkAndSendNoticePeriodReminders() {
+	ctx := context.Background()
+	properties, err := rs.propertyService.GetAllProperties(ctx)
+	if err != nil {
+		fmt.Printf("Error fetching properties for notice period check: %v\n", err)
+		return
+	}
+
+	today := time.Now()
+
+	for _, property := range properties {
+		if !property.IsActive {
+			continue
+		}
+
+		updated := false
+		for i, tenant := range property.Tenants {
+			if !tenant.IsActive {
+				continue
+			}
+
+			// Ensure we have necessary dates and notice period
+			if tenant.LeaseEndDate == "" || tenant.NoticePeriod == "" {
+				continue
+			}
+
+			// Parse Lease End Date
+			leaseEnd, err := time.Parse("2006-01-02", tenant.LeaseEndDate)
+			if err != nil {
+				// Try alternate format if needed, or log error
+				// Assuming standard YYYY-MM-DD from HTML date input
+				continue
+			}
+
+			// Parse Notice Period (e.g., "1 Month", "2 Months")
+			var invalidNotice bool
+			months := 0
+			if strings.Contains(tenant.NoticePeriod, "1") {
+				months = 1
+			} else if strings.Contains(tenant.NoticePeriod, "2") {
+				months = 2
+			} else if strings.Contains(tenant.NoticePeriod, "3") {
+				months = 3
+			} else if strings.Contains(tenant.NoticePeriod, "6") {
+				months = 6
+			} else {
+				invalidNotice = true
+			}
+
+			if invalidNotice || months == 0 {
+				continue
+			}
+
+			// Calculate Notice Start Date
+			noticeStartDate := leaseEnd.AddDate(0, -months, 0)
+
+			// Check if today matches the notice start date
+			if isSameDay(today, noticeStartDate) {
+				// Check if already notified
+				lastSent := tenant.LastNoticePeriodReminderSentAt
+				if lastSent.IsZero() || !isSameDay(lastSent, today) {
+
+					// Prepare Email Data
+					emailData := NoticePeriodEmailData{
+						TenantName:      tenant.FirstName + " " + tenant.LastName,
+						OwnerName:       property.OwnerName,
+						PropertyTitle:   property.Title,
+						PropertyAddress: property.Address,
+						NoticePeriod:    tenant.NoticePeriod,
+						LeaseEndDate:    tenant.LeaseEndDate,
+					}
+
+					// Send to Tenant
+					emailData.RecipientType = "tenant"
+					rs.emailService.SendNoticePeriodReminder(emailData, []string{tenant.Email})
+
+					// Send to Owner
+					emailData.RecipientType = "owner"
+					// Assuming property.OwnerEmail exists and is populated
+					if property.OwnerEmail != "" {
+						rs.emailService.SendNoticePeriodReminder(emailData, []string{property.OwnerEmail})
+					}
+
+					// Update status
+					property.Tenants[i].LastNoticePeriodReminderSentAt = today
+					updated = true
+					fmt.Printf("Sent notice period reminder for %s\n", property.Title)
+				}
+			}
+		}
+
+		if updated {
+			updates := map[string]interface{}{
+				"tenants": property.Tenants,
+			}
+			_, err := rs.propertyService.UpdateProperty(ctx, property.ID, updates)
+			if err != nil {
+				fmt.Printf("Failed to update property %s after sending notice reminder: %v\n", property.ID, err)
 			}
 		}
 	}

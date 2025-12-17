@@ -759,3 +759,122 @@ func (es *EmailService) buildRentPaymentReminderEmail(data RentPaymentReminderEm
 		data.PropertyAddress,
 	)
 }
+
+type NoticePeriodEmailData struct {
+	TenantName      string
+	OwnerName       string
+	PropertyTitle   string
+	PropertyAddress string
+	NoticePeriod    string
+	LeaseEndDate    string
+	RecipientType   string // "tenant" or "owner"
+}
+
+func (es *EmailService) SendNoticePeriodReminder(data NoticePeriodEmailData, recipients []string) error {
+	var subject string
+	var body string
+
+	if data.RecipientType == "tenant" {
+		subject = fmt.Sprintf("Notice Period Started for %s", data.PropertyTitle)
+		body = es.buildTenantNoticePeriodEmail(data)
+	} else {
+		subject = fmt.Sprintf("Notice Period Reminder for %s", data.PropertyTitle)
+		body = es.buildOwnerNoticePeriodEmail(data)
+	}
+
+	for _, to := range recipients {
+		if err := es.sendEmail(to, subject, body); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (es *EmailService) buildTenantNoticePeriodEmail(data NoticePeriodEmailData) string {
+	return fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #f59e0b 0%%, #fbbf24 100%%); padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
+                <p style="color: #fffbeb; margin: 10px 0 0 0; font-size: 14px;">Notice Period Activation</p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 30px;">
+                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                    This email is to inform you that the <strong>%s</strong> notice period for your lease has officially started.
+                </p>
+                 <div style="background-color: #fffbeb; border: 1px solid #fcd34d; border-radius: 12px; padding: 25px; margin-bottom: 25px; text-align: center;">
+                    <p style="color: #92400e; font-size: 14px; margin: 0 0 5px 0; text-transform: uppercase; font-weight: 600;">Lease End Date</p>
+                    <h1 style="color: #b45309; margin: 0; font-size: 28px;">%s</h1>
+                    <p style="color: #92400e; font-size: 14px; margin: 5px 0 0 0;">Notice Period: %s</p>
+                </div>
+
+                <p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin: 25px 0 0 0;">
+                    Please coordinate with the property owner regarding move-out procedures or lease renewal discussions if applicable.
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="background-color: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="color: #64748b; font-size: 12px; margin: 0;">© 2025 Propbank. All rights reserved.</p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`, data.TenantName, data.NoticePeriod, data.LeaseEndDate, data.NoticePeriod)
+}
+
+func (es *EmailService) buildOwnerNoticePeriodEmail(data NoticePeriodEmailData) string {
+	return fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+             <td style="background: linear-gradient(135deg, #3b82f6 0%%, #60a5fa 100%%); padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
+                <p style="color: #bfdbfe; margin: 10px 0 0 0; font-size: 14px;">Tenant Notice Period Alert</p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 30px;">
+                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                    The <strong>%s</strong> notice period for your property has started.
+                </p>
+                
+                 <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                    <p style="margin: 5px 0; color: #1e3a8a;"><strong>Tenant:</strong> %s</p>
+                    <p style="margin: 5px 0; color: #1e3a8a;"><strong>Property:</strong> %s</p>
+                    <p style="margin: 5px 0; color: #1e3a8a;"><strong>Lease End Date:</strong> %s</p>
+                </div>
+
+                <p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin: 25px 0 0 0;">
+                    It is recommended to start looking for new tenants or discuss renewal options with the current tenant.
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="background-color: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="color: #64748b; font-size: 12px; margin: 0;">© 2025 Propbank. All rights reserved.</p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`, data.OwnerName, data.NoticePeriod, data.TenantName, data.PropertyTitle, data.LeaseEndDate)
+}

@@ -253,6 +253,18 @@ func main() {
 		}
 	})
 
+	http.HandleFunc("/agreements/request-termination", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "POST" {
+			agreementHandler.RequestTermination(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	http.HandleFunc("/agreements/renew", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
 		if r.Method == "OPTIONS" {
@@ -260,6 +272,18 @@ func main() {
 		}
 		if r.Method == "POST" {
 			agreementHandler.RenewAgreement(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	http.HandleFunc("/agreements/request-renewal", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "POST" {
+			agreementHandler.RequestRenewal(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

@@ -514,6 +514,7 @@ type AgreementTerminationEmailData struct {
 	PropertyTitle      string
 	PropertyAddress    string
 	PropertyType       string
+	MonthlyRent        string // Added missing field
 	TerminationDate    string
 	Reason             string
 	AgreementStartDate string
@@ -544,6 +545,145 @@ func (es *EmailService) SendAgreementTerminationNotification(data AgreementTermi
 	}
 
 	return nil
+}
+
+// SendAgreementNoticeNotification sends email to both owner and tenant when notice is served
+func (es *EmailService) SendAgreementNoticeNotification(data AgreementTerminationEmailData) error {
+	// Send email to Tenant
+	tenantSubject := "📅 Agreement Termination Notice Served - Propbank"
+	tenantBody := es.buildAgreementNoticeEmail(data, true)
+
+	if data.TenantEmail != "" {
+		if err := es.sendEmail(data.TenantEmail, tenantSubject, tenantBody); err != nil {
+		}
+	}
+
+	// Send email to Owner
+	ownerSubject := "✅ Notice Period Initiated - Propbank"
+	ownerBody := es.buildAgreementNoticeEmail(data, false)
+
+	if data.OwnerEmail != "" {
+		if err := es.sendEmail(data.OwnerEmail, ownerSubject, ownerBody); err != nil {
+		}
+	}
+
+	return nil
+}
+
+func (es *EmailService) buildAgreementNoticeEmail(data AgreementTerminationEmailData, isTenant bool) string {
+	var headerText, recipientName, introText string
+
+	if isTenant {
+		headerText = "Termination Notice"
+		recipientName = data.TenantName
+		introText = fmt.Sprintf("We have received a notice to terminate the lease agreement for <strong>%s</strong>. The agreement will be terminated on <strong>%s</strong>.", data.PropertyTitle, data.TerminationDate)
+	} else {
+		headerText = "Notice Initiated"
+		recipientName = data.OwnerName
+		introText = fmt.Sprintf("You have successfully served a termination notice for <strong>%s</strong>. The agreement is scheduled to end on <strong>%s</strong>.", data.PropertyTitle, data.TerminationDate)
+	}
+
+	return fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <tr>
+            <td style="background: linear-gradient(135deg, #f59e0b 0%%, #d97706 100%%); padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
+                <p style="color: #fde68a; margin: 10px 0 0 0; font-size: 14px;">%s</p>
+            </td>
+        </tr>
+        
+        <!-- Main Content -->
+        <tr>
+            <td style="padding: 40px 30px;">
+                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                    %s
+                </p>
+                
+                <!-- Property Details Card -->
+                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #fffbeb; border-radius: 12px; border: 1px solid #fcd34d;">
+                    <tr>
+                        <td style="padding: 25px;">
+                            <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 16px; border-bottom: 1px solid #fcd34d; padding-bottom: 10px;">
+                                🏢 Property Details
+                            </h3>
+                            <table cellpadding="0" cellspacing="0" width="100%%">
+                                <tr>
+                                    <td style="padding: 5px 0;"><strong style="color: #78350f;">Title:</strong></td>
+                                    <td style="color: #1e293b;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0;"><strong style="color: #78350f;">Address:</strong></td>
+                                    <td style="color: #1e293b;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0;"><strong style="color: #78350f;">Type:</strong></td>
+                                    <td style="color: #1e293b;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0;"><strong style="color: #78350f;">Rent:</strong></td>
+                                    <td style="color: #1e293b;">₹%s/month</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Schedule Card -->
+                <table cellpadding="0" cellspacing="0" width="100%%" style="margin-top: 20px; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+                    <tr>
+                        <td style="padding: 25px;">
+                            <h3 style="color: #475569; margin: 0 0 15px 0; font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                                📅 Termination Schedule
+                            </h3>
+                            <p style="color: #1e293b; font-size: 18px; margin: 0; font-weight: 600; text-align: center;">
+                                %s
+                            </p>
+                             <p style="color: #64748b; font-size: 13px; margin: 10px 0 0 0; text-align: center;">
+                                Anticipated Termination Date
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+                
+                <p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin: 25px 0 0 0;">
+                    Please ensure all dues are cleared and the property is vacated by the termination date.
+                </p>
+            </td>
+        </tr>
+        
+        <!-- Footer -->
+        <tr>
+            <td style="background-color: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="color: #64748b; font-size: 12px; margin: 0;">
+                    This email was sent by Propbank. If you have any questions, contact us at 
+                    <a href="mailto:connectpropbank@gmail.com" style="color: #2563eb;">connectpropbank@gmail.com</a>
+                </p>
+                <p style="color: #94a3b8; font-size: 11px; margin: 10px 0 0 0;">© 2025 Propbank. All rights reserved.</p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`,
+		headerText,
+		recipientName,
+		introText,
+		data.PropertyTitle,
+		data.PropertyAddress,
+		data.PropertyType,
+		data.MonthlyRent,
+		data.TerminationDate,
+	)
 }
 
 // buildAgreementTerminationEmail builds the HTML email for agreement termination notification
@@ -877,4 +1017,105 @@ func (es *EmailService) buildOwnerNoticePeriodEmail(data NoticePeriodEmailData) 
 </body>
 </html>
 `, data.OwnerName, data.NoticePeriod, data.TenantName, data.PropertyTitle, data.LeaseEndDate)
+}
+
+// SendTerminationRequestNotification sends email to owner when tenant requests termination
+func (es *EmailService) SendTerminationRequestNotification(ownerEmail, ownerName, tenantName, tenantEmail, propertyTitle, propertyID, noticePeriod string) error {
+	if noticePeriod == "" {
+		noticePeriod = "Immediate"
+	}
+
+	// 1. Send Email to Owner
+	ownerSubject := fmt.Sprintf("📢 Termination Request: %s - %s", propertyTitle, noticePeriod)
+	ownerBody := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #ef4444 0%%, #dc2626 100%%); padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
+                <p style="color: #fecaca; margin: 10px 0 0 0; font-size: 14px;">Termination Request</p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 30px;">
+                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                    Your tenant, <strong>%s</strong>, has requested to terminate the lease agreement for <strong>%s</strong>.
+                </p>
+                
+                <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                    <p style="color: #991b1b; font-size: 14px; margin: 0; font-weight: 500;">
+                        Requested Notice Period: <strong>%s</strong>
+                    </p>
+                    <p style="color: #991b1b; font-size: 14px; margin: 10px 0 0 0; font-weight: 500;">
+                        Action Required: Please review this request and take appropriate action (Serve Notice or Terminate) through the Propbank dashboard.
+                    </p>
+                </div>
+
+                <p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin: 0;">
+                    Property ID: %s
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`, ownerName, tenantName, propertyTitle, noticePeriod, propertyID)
+
+	if err := es.sendEmail(ownerEmail, ownerSubject, ownerBody); err != nil {
+		// Log but continue
+	}
+
+	// 2. Send Confirmation Email to Tenant
+	if tenantEmail != "" {
+		tenantSubject := "Termination Request Received - Propbank"
+		tenantBody := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #3b82f6 0%%, #2563eb 100%%); padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
+                <p style="color: #bfdbfe; margin: 10px 0 0 0; font-size: 14px;">Termination Request Sent</p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 30px;">
+                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                    We have received your request to terminate the agreement for <strong>%s</strong>.
+                </p>
+                
+                 <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                    <p style="color: #1e40af; font-size: 14px; margin: 0; font-weight: 500;">
+                        Requested Notice Period: <strong>%s</strong>
+                    </p>
+                     <p style="color: #1e40af; font-size: 14px; margin: 10px 0 0 0;">
+                        The owner (%s) has been notified. They will process your request shortly.
+                    </p>
+                </div>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`, tenantName, propertyTitle, noticePeriod, ownerName)
+
+		return es.sendEmail(tenantEmail, tenantSubject, tenantBody)
+	}
+
+	return nil
 }

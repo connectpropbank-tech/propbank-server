@@ -130,6 +130,7 @@ type Property struct {
 
 	// Tenant Information
 	TenantName   string `json:"tenantName" firestore:"tenantName"`
+	TenantEmail  string `json:"tenantEmail" firestore:"tenantEmail"`
 	PersonName   string `json:"personName" firestore:"personName"`
 	MobileNumber string `json:"mobileNumber" firestore:"mobileNumber"`
 	PrimaryNo    string `json:"primaryNo" firestore:"primaryNo"`
@@ -165,14 +166,15 @@ type Property struct {
 	LockInPeriod string `json:"lockInPeriod" firestore:"lockInPeriod"`
 
 	// Unit Condition & Maintenance
-	UnitCondition         string          `json:"unitCondition" firestore:"unitCondition"`
-	MaintenanceToBePaidBy string          `json:"maintenanceToBePaidBy" firestore:"maintenanceToBePaidBy"`
-	ProjectCondition      string          `json:"projectCondition" firestore:"projectCondition"` // New Project, Ready Project, Preleased
-	InternalImages        []string        `json:"internalImages" firestore:"internalImages"`
-	PossessionDate        string          `json:"possessionDate" firestore:"possessionDate"`
-	RentalStatus          string          `json:"rentalStatus" firestore:"rentalStatus"`       // available, rented
-	AgreementStatus       string          `json:"agreementStatus" firestore:"agreementStatus"` // active, terminated, renewed
-	FurnishedChecklist    []FurnishedItem `json:"furnishedChecklist" firestore:"furnishedChecklist"`
+	UnitCondition              string          `json:"unitCondition" firestore:"unitCondition"`
+	MaintenanceToBePaidBy      string          `json:"maintenanceToBePaidBy" firestore:"maintenanceToBePaidBy"`
+	ProjectCondition           string          `json:"projectCondition" firestore:"projectCondition"` // New Project, Ready Project, Preleased
+	InternalImages             []string        `json:"internalImages" firestore:"internalImages"`
+	PossessionDate             string          `json:"possessionDate" firestore:"possessionDate"`
+	RentalStatus               string          `json:"rentalStatus" firestore:"rentalStatus"`       // available, rented
+	AgreementStatus            string          `json:"agreementStatus" firestore:"agreementStatus"` // active, terminated, renewed, notice_served
+	AnticipatedTerminationDate string          `json:"anticipatedTerminationDate" firestore:"anticipatedTerminationDate"`
+	FurnishedChecklist         []FurnishedItem `json:"furnishedChecklist" firestore:"furnishedChecklist"`
 
 	// Legacy fields for compatibility
 	Description string  `json:"description" firestore:"description"`

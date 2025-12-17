@@ -108,6 +108,7 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 
 		// Tenant Information
 		TenantName:   req.TenantName,
+		TenantEmail:  req.TenantEmail,
 		PersonName:   req.PersonName,
 		MobileNumber: req.MobileNumber,
 		PrimaryNo:    req.PrimaryNo,
@@ -165,18 +166,12 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Logic to populate Tenants slice if property is rented
-	if req.ListingType == "rent" && req.RentalStatus == "rented" {
+	if req.RentalStatus == "rented" { // Removed listingType check to be more robust, or keep it.
+		// Usually if RentalStatus is rented, it implies it's a rental property.
 		tenant := models.TenantInfo{
-			FirstName: req.TenantName, // Assuming TenantName contains full name or just first name
-			LastName:  "",             // Split logic could be added if needed
-			Email:     "",             // Required but not in flat request? checking... ownerEmail is there.
-			// Wait, the flat request has TenantName, PersonName, MobileNumber.
-			// It doesn't seem to have TenantEmail field in the flat structure?
-			// Let's check CreatePropertyRequest definition again.
-			// Re-checking CreatePropertyRequest... it has OwnerEmail but not explicit TenantEmail?
-			// Checking frontend... frontend sends tenantName, personName, mobileNumber...
-			// Wait, AddPropertyForm has fields for email?
-			// Let's assume for now we map what we have.
+			FirstName:      req.TenantName, // Assuming TenantName contains full name
+			LastName:       "",             // Split logic could be added if needed
+			Email:          req.TenantEmail,
 			Phone:          req.MobileNumber,
 			PaymentDueDate: req.PaymentDueDate,
 			MonthlyRent:    req.MonthlyRent,
@@ -187,9 +182,24 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 			CreatedAt:      time.Now(),
 			UpdatedAt:      time.Now(),
 		}
-		// If we have spouse info, etc, we should map it too.
-		// But for now, ensuring NoticePeriod is mapped is key.
+
+		// Try to link with existing user by email
+		if req.TenantEmail != "" {
+			user, err := h.userService.GetUserByEmail(r.Context(), req.TenantEmail)
+			if err == nil && user != nil {
+				tenant.UserUID = user.UID
+			}
+		}
+
 		property.Tenants = []models.TenantInfo{tenant}
+
+		// Note: We need to verify if we should call updateUsersWithRentedProperty here.
+		// CreateProperty inserts the property.
+		// If we found a user, we should update them?
+		// Yes, but we need the Property ID which is generated above.
+		// And we need to do it after property creation or here if we pass the property ID?
+		// Actually updateUsersWithRentedProperty takes propertyID.
+		// We will do it AFTER successful creation below.
 	}
 
 	// Create property in database
@@ -197,6 +207,26 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		http.Error(w, "Failed to create property", http.StatusInternalServerError)
 		return
+	}
+
+	// Update tenant users with the rented property ID if they were linked
+	if len(property.Tenants) > 0 {
+		for _, tenant := range property.Tenants {
+			if tenant.UserUID != "" {
+				// Update user with rented property information
+				user, err := h.userService.GetUserByID(r.Context(), tenant.UserUID)
+				if err == nil {
+					user.RentedPropertyID = createdProperty.ID
+					user.RentedPropertyOwnerID = createdProperty.OwnerUID
+					user.RentedPropertyOwnerName = createdProperty.OwnerName
+					user.UpdatedAt = time.Now()
+
+					// Save updated user
+					// We ignore error here to not block response, but could log it
+					_ = h.userService.CreateOrUpdateUser(r.Context(), user)
+				}
+			}
+		}
 	}
 
 	// Return success response
@@ -603,25 +633,56 @@ func (h *PropertyHandler) GetPropertiesByOwner(w http.ResponseWriter, r *http.Re
 
 }
 
-// GetPropertiesByTenant gets all properties where the user is a tenant (using email)
+// GetPropertiesByTenant gets all properties where the user is a tenant
 func (h *PropertyHandler) GetPropertiesByTenant(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
+	// Check for tenantUID query parameter first (User preferred method)
+	tenantUID := r.URL.Query().Get("tenantUID")
+	if tenantUID != "" {
+		properties, err := h.propertyService.GetPropertiesByTenantUID(r.Context(), tenantUID)
+		if err != nil {
+			http.Error(w, "Failed to get properties", http.StatusInternalServerError)
+			return
+		}
+
+		h.respondWithProperties(w, properties)
+		return
+	}
+
+	// Fallback: Get user ID from header (My previous implementation)
+	userID := r.Header.Get("X-User-ID")
+	if userID != "" {
+		// Get User to find their email (or just use UID if we want to switch entirely)
+		// Since we have GetPropertiesByTenantUID, we can just use that!
+		properties, err := h.propertyService.GetPropertiesByTenantUID(r.Context(), userID)
+		if err != nil {
+			http.Error(w, "Failed to get properties", http.StatusInternalServerError)
+			return
+		}
+		h.respondWithProperties(w, properties)
+		return
+	}
+
+	// Legacy Fallback: Check for userEmail query parameter
 	userEmail := r.URL.Query().Get("userEmail")
-	if userEmail == "" {
-		http.Error(w, "userEmail parameter is required", http.StatusBadRequest)
+	if userEmail != "" {
+		properties, err := h.propertyService.GetPropertiesByTenantEmail(r.Context(), userEmail)
+		if err != nil {
+			http.Error(w, "Failed to get properties", http.StatusInternalServerError)
+			return
+		}
+		h.respondWithProperties(w, properties)
 		return
 	}
 
-	properties, err := h.propertyService.GetPropertiesByTenantEmail(r.Context(), userEmail)
-	if err != nil {
-		http.Error(w, "Failed to get properties", http.StatusInternalServerError)
-		return
-	}
+	http.Error(w, "tenantUID, X-User-ID header, or userEmail parameter is required", http.StatusBadRequest)
+}
 
+func (h *PropertyHandler) respondWithProperties(w http.ResponseWriter, properties []models.Property) {
 	// Convert to response format
 	var propertyResponses []models.PropertyResponse
 	for _, property := range properties {

@@ -287,6 +287,7 @@ type CreatePropertyRequest struct {
 
 	// Tenant Information
 	TenantName   string `json:"tenantName"`
+	TenantEmail  string `json:"tenantEmail"`
 	PersonName   string `json:"personName"`
 	MobileNumber string `json:"mobileNumber"`
 	PrimaryNo    string `json:"primaryNo"`

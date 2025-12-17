@@ -110,6 +110,34 @@ func (us *UserService) GetUserByPhoneNumber(ctx context.Context, phoneNumber str
 	return &user, nil
 }
 
+// GetUserByEmail fetches a user by email
+func (us *UserService) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	// Search for user by email
+	iter := us.client.Collection("users").Where("email", "==", email).Documents(ctx)
+	defer iter.Stop()
+
+	// Get first matching user
+	doc, err := iter.Next()
+	if err == iterator.Done {
+		return nil, fmt.Errorf("user not found with email: %s", email)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to search user by email: %v", err)
+	}
+
+	var user models.User
+	if err := doc.DataTo(&user); err != nil {
+		return nil, fmt.Errorf("failed to parse user data: %v", err)
+	}
+
+	// Set the UID from document ID if not set
+	if user.UID == "" {
+		user.UID = doc.Ref.ID
+	}
+
+	return &user, nil
+}
+
 // NormalizePhoneNumber normalizes phone number for consistent searching and storage
 // This is exported so it can be used by handlers to normalize phone numbers before storing
 func NormalizePhoneNumber(phone string) string {

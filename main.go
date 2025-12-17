@@ -49,6 +49,7 @@ func main() {
 	adminNotificationHandler := handlers.NewAdminNotificationHandler(config.GetFirestoreClient())
 	siteSettingsHandler := handlers.NewSiteSettingsHandler(config.GetFirestoreClient())
 	agreementHandler := handlers.NewAgreementHandler(config.GetFirestoreClient())
+	documentHandler := handlers.NewDocumentHandler(config.GetFirestoreClient(), uploadHandler.GetR2Service())
 	if err != nil {
 	} else {
 	}
@@ -180,6 +181,44 @@ func main() {
 			propertyHandler.GetProperty(w, r)
 		} else if r.Method == "PUT" || r.Method == "PATCH" {
 			propertyHandler.UpdateProperty(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+
+	})
+
+	// Document routes
+	http.HandleFunc("/documents", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "POST" {
+			documentHandler.CreateDocument(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Document routes with ID or Property ID
+	http.HandleFunc("/documents/", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+
+		path := r.URL.Path
+		if strings.HasPrefix(path, "/documents/property/") {
+			if r.Method == "GET" {
+				documentHandler.GetDocumentsByProperty(w, r)
+				return
+			}
+		}
+
+		if r.Method == "GET" {
+			documentHandler.GetDocumentByID(w, r)
+		} else if r.Method == "DELETE" {
+			documentHandler.DeleteDocument(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

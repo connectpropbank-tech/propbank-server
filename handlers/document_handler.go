@@ -3,10 +3,10 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
-	"shoprop-backend/config"
 	"shoprop-backend/models"
 	"shoprop-backend/services"
 
@@ -14,22 +14,18 @@ import (
 )
 
 type DocumentHandler struct {
-	service                *services.DocumentService
-	documentStorageService *services.DocumentStorageService
-	propertyService        *services.PropertyService
-	userService            *services.UserService
+	service         *services.DocumentService
+	r2Service       *services.R2StorageService
+	propertyService *services.PropertyService
+	userService     *services.UserService
 }
 
-func NewDocumentHandler(client *firestore.Client) *DocumentHandler {
-	// Initialize document storage service with Firebase Storage
-	storageClient := config.GetStorageClient()
-	bucketName := config.GetStorageBucket()
-
+func NewDocumentHandler(client *firestore.Client, r2Service *services.R2StorageService) *DocumentHandler {
 	return &DocumentHandler{
-		service:                services.NewDocumentService(client),
-		documentStorageService: services.NewDocumentStorageService(storageClient, bucketName),
-		propertyService:        services.NewPropertyService(client),
-		userService:            services.NewUserService(client),
+		service:         services.NewDocumentService(client),
+		r2Service:       r2Service,
+		propertyService: services.NewPropertyService(client),
+		userService:     services.NewUserService(client),
 	}
 }
 
@@ -129,19 +125,25 @@ func (h *DocumentHandler) CreateDocument(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Check if fileUrl is already a Storage URL or base64
+	// Check if fileUrl is already a URL
 	var storageURL string
-	if strings.HasPrefix(req.FileURL, "https://storage.googleapis.com/") {
-		// Already a Storage URL, use it directly
+	if strings.HasPrefix(req.FileURL, "https://") || strings.HasPrefix(req.FileURL, "http://") {
+		// Already a URL, use it directly
 		storageURL = req.FileURL
 	} else {
-		// Upload base64 file to Firebase Storage
-		uploadedURL, err := h.documentStorageService.UploadDocument(
-			ctx,
+		// Upload base64 file to R2
+		// Sanitize document name for filename
+		sanitizedName := strings.ReplaceAll(req.DocumentName, " ", "_")
+		sanitizedName = strings.ReplaceAll(sanitizedName, "/", "_")
+		sanitizedName = strings.ReplaceAll(sanitizedName, "\\", "_")
+
+		folder := fmt.Sprintf("documents/%s", req.PropertyID)
+		identifier := fmt.Sprintf("%s_%s", sanitizedName, req.DocumentType)
+
+		uploadedURL, err := h.r2Service.UploadBase64Document(
 			req.FileURL,
-			req.PropertyID,
-			req.DocumentName,
-			req.DocumentType,
+			folder,
+			identifier,
 		)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -282,9 +284,10 @@ func (h *DocumentHandler) DeleteDocument(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Delete from Storage if it's a Storage URL
-	if strings.HasPrefix(document.FileURL, "https://storage.googleapis.com/") {
-		if err := h.documentStorageService.DeleteDocument(ctx, document.FileURL); err != nil {
+	if document.FileURL != "" {
+		if err := h.r2Service.DeleteFile(ctx, document.FileURL); err != nil {
 			// Continue to delete from Firestore even if Storage deletion fails
+			// Log error if needed
 		} else {
 		}
 	}

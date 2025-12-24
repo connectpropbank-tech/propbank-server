@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"shoprop-backend/config"
 	"shoprop-backend/handlers"
 	"shoprop-backend/services"
@@ -511,7 +512,14 @@ func main() {
 		})
 	}
 
-	if err := http.ListenAndServe(":8002", nil); err != nil {
+	// Get port from environment variable or default to 8002
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8002"
+	}
+
+	fmt.Printf("Server starting on port %s...\n", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("❌ Could not start server: %s\n", err.Error())
 	}
 }

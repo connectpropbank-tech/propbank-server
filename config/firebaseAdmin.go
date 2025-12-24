@@ -50,7 +50,15 @@ func InitFirebase() {
 	}
 
 	ctx := context.Background()
-	opt := option.WithCredentialsFile(os.Getenv("FIREBASE_CREDENTIALS"))
+	creds := os.Getenv("FIREBASE_CREDENTIALS")
+	var opt option.ClientOption
+
+	// Check if creds is JSON content (starts with {) or a file path
+	if len(creds) > 0 && creds[0] == '{' {
+		opt = option.WithCredentialsJSON([]byte(creds))
+	} else {
+		opt = option.WithCredentialsFile(creds)
+	}
 
 	firebaseApp, err = firebase.NewApp(ctx, nil, opt)
 	if err != nil {

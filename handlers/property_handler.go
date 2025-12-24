@@ -54,7 +54,8 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 
 	var req models.CreatePropertyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		fmt.Printf("Error decoding JSON: %v\n", err)
+		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
 		return
 	}
 

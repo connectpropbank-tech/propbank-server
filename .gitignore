@@ -16,6 +16,9 @@
 
 # Environment and secrets
 .env
+.env*
+.env.local
+
 config/serviceAccountKey.json
 
 # Local scripts (for development/testing only)

@@ -1119,3 +1119,108 @@ func (es *EmailService) SendTerminationRequestNotification(ownerEmail, ownerName
 
 	return nil
 }
+
+// PaymentDueUpdateEmailData contains data for payment due date update email
+type PaymentDueUpdateEmailData struct {
+	TenantName      string
+	TenantEmail     string
+	PropertyTitle   string
+	PropertyAddress string
+	NewDueDate      string
+	OwnerName       string
+	OwnerEmail      string
+	OwnerPhone      string
+}
+
+// SendPaymentDueUpdateNotification sends email to tenant when payment due date is updated
+func (es *EmailService) SendPaymentDueUpdateNotification(data PaymentDueUpdateEmailData) error {
+	subject := "📅 Payment Due Date Updated - Propbank"
+	body := es.buildPaymentDueUpdateEmail(data)
+
+	if data.TenantEmail != "" {
+		if err := es.sendEmail(data.TenantEmail, subject, body); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// buildPaymentDueUpdateEmail builds the HTML email for payment due date update
+func (es *EmailService) buildPaymentDueUpdateEmail(data PaymentDueUpdateEmailData) string {
+	return fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #3b82f6 0%%, #2563eb 100%%); padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
+                <p style="color: #dbeafe; margin: 10px 0 0 0; font-size: 14px;">Payment Schedule Update</p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 30px;">
+                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                    Review the update to your rent payment schedule for <strong>%s</strong>.
+                </p>
+                
+                <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 20px; margin-bottom: 25px; text-align: center;">
+                    <p style="color: #1e40af; font-size: 14px; margin: 0 0 10px 0; text-transform: uppercase; font-weight: 600;">New Payment Due Date</p>
+                    <p style="color: #1e3a8a; font-size: 32px; margin: 0; font-weight: 700;">%s<span style="font-size: 16px; font-weight: 400; color: #60a5fa;"> of every month</span></p>
+                </div>
+
+                <p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin: 0 0 25px 0;">
+                    Please ensure your future rent payments are made by this date to avoid any late fees.
+                </p>
+
+                <!-- Property Details -->
+                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                    <tr>
+                        <td style="padding: 20px;">
+                            <h3 style="color: #1a365d; margin: 0 0 15px 0; font-size: 16px;">🏢 Property Details</h3>
+                            <p style="margin: 5px 0;"><strong>Address:</strong> %s</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Owner Details -->
+                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #fef3c7; border-radius: 12px; border: 1px solid #fcd34d;">
+                    <tr>
+                        <td style="padding: 20px;">
+                            <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 16px;">🏠 Owner Details</h3>
+                            <p style="margin: 5px 0;"><strong>Name:</strong> %s</p>
+                            <p style="margin: 5px 0;"><strong>Email:</strong> <a href="mailto:%s" style="color: #2563eb;">%s</a></p>
+                            <p style="margin: 5px 0;"><strong>Phone:</strong> %s</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td style="background-color: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="color: #64748b; font-size: 12px; margin: 0;">
+                    This email was sent by Propbank. Contact us at 
+                    <a href="mailto:connectpropbank@gmail.com" style="color: #2563eb;">connectpropbank@gmail.com</a>
+                </p>
+                <p style="color: #94a3b8; font-size: 11px; margin: 10px 0 0 0;">© 2025 Propbank. All rights reserved.</p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`,
+		data.TenantName,
+		data.PropertyTitle,
+		data.NewDueDate,
+		data.PropertyAddress,
+		data.OwnerName,
+		data.OwnerEmail,
+		data.OwnerEmail,
+		data.OwnerPhone,
+	)
+}

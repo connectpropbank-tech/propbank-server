@@ -65,6 +65,20 @@ func main() {
 	// Start the reminder scheduler (checks every minute)
 	reminderScheduler.Start()
 
+	// Admin route to force trigger reminders (for testing)
+	http.HandleFunc("/admin/trigger-reminders", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+
+		// Run checks in background to not block response
+		go reminderScheduler.ForceCheck()
+
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"success": true, "message": "Reminder checks triggered successfully"}`)
+	})
+
 	// Routes
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)

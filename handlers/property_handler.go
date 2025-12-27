@@ -108,7 +108,8 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		ConstructedArea: req.ConstructedArea,
 
 		// Tenant Information
-		TenantName:   req.TenantName,
+		// Tenant Information
+		TenantName:   fmt.Sprintf("%s %s", req.TenantFirstName, req.TenantLastName), // Combine for legacy field
 		TenantEmail:  req.TenantEmail,
 		PersonName:   req.PersonName,
 		MobileNumber: req.MobileNumber,
@@ -167,21 +168,42 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Logic to populate Tenants slice if property is rented
-	if req.RentalStatus == "rented" { // Removed listingType check to be more robust, or keep it.
-		// Usually if RentalStatus is rented, it implies it's a rental property.
+	if req.RentalStatus == "rented" {
+		// Fallback for Tenant Name if split fields are empty
+		firstName := req.TenantFirstName
+		lastName := req.TenantLastName
+
+		if firstName == "" && lastName == "" && req.TenantName != "" {
+			parts := strings.Split(req.TenantName, " ")
+			if len(parts) > 0 {
+				firstName = parts[0]
+			}
+			if len(parts) > 1 {
+				lastName = strings.Join(parts[1:], " ")
+			}
+		}
+
 		tenant := models.TenantInfo{
-			FirstName:      req.TenantName, // Assuming TenantName contains full name
-			LastName:       "",             // Split logic could be added if needed
-			Email:          req.TenantEmail,
-			Phone:          req.MobileNumber,
-			PaymentDueDate: req.PaymentDueDate,
-			MonthlyRent:    req.MonthlyRent,
-			LeaseStartDate: req.AgreementStartDate,
-			LeaseEndDate:   req.AgreementEndDate,
-			NoticePeriod:   req.NoticePeriod,
-			IsActive:       true,
-			CreatedAt:      time.Now(),
-			UpdatedAt:      time.Now(),
+			FirstName:        firstName,
+			LastName:         lastName,
+			Email:            req.TenantEmail,
+			Phone:            req.MobileNumber,
+			PaymentDueDate:   req.PaymentDueDate,
+			MonthlyRent:      req.MonthlyRent,
+			LeaseStartDate:   req.AgreementStartDate,
+			LeaseEndDate:     req.AgreementEndDate,
+			NoticePeriod:     req.NoticePeriod,
+			EmergencyContact: req.TenantEmergencyContact,
+			PreviousAddress:  req.TenantPreviousAddress,
+			EmploymentStatus: req.TenantEmploymentStatus,
+			Employer:         req.TenantEmployer,
+			MonthlyIncome:    req.TenantMonthlyIncome,
+			IsMarried:        req.TenantIsMarried,
+			Spouse:           req.TenantSpouse,
+			RentSchedule:     req.RentSchedule, // Also map rent schedule if provided
+			IsActive:         true,
+			CreatedAt:        time.Now(),
+			UpdatedAt:        time.Now(),
 		}
 
 		// Try to link with existing user by email
@@ -642,15 +664,44 @@ func (h *PropertyHandler) GetPropertiesByTenant(w http.ResponseWriter, r *http.R
 	}
 
 	// Check for tenantUID query parameter first (User preferred method)
+	// Check for tenantUID query parameter first (User preferred method)
 	tenantUID := r.URL.Query().Get("tenantUID")
+	userEmail := r.URL.Query().Get("userEmail")
+
 	if tenantUID != "" {
-		properties, err := h.propertyService.GetPropertiesByTenantUID(r.Context(), tenantUID)
+		// Fetch by UID
+		propertiesUID, err := h.propertyService.GetPropertiesByTenantUID(r.Context(), tenantUID)
 		if err != nil {
-			http.Error(w, "Failed to get properties", http.StatusInternalServerError)
+			http.Error(w, "Failed to get properties by UID", http.StatusInternalServerError)
 			return
 		}
 
-		h.respondWithProperties(w, properties)
+		// If email is also provided, fetch by Email and merge
+		if userEmail != "" {
+			propertiesEmail, err := h.propertyService.GetPropertiesByTenantEmail(r.Context(), userEmail)
+			if err != nil {
+				// Log error but continue with UID results
+			} else {
+				// Merge results
+				propertyMap := make(map[string]models.Property)
+				for _, p := range propertiesUID {
+					propertyMap[p.ID] = p
+				}
+				for _, p := range propertiesEmail {
+					propertyMap[p.ID] = p
+				}
+
+				// Convert back to slice
+				var mergedProperties []models.Property
+				for _, p := range propertyMap {
+					mergedProperties = append(mergedProperties, p)
+				}
+				h.respondWithProperties(w, mergedProperties)
+				return
+			}
+		}
+
+		h.respondWithProperties(w, propertiesUID)
 		return
 	}
 
@@ -669,7 +720,6 @@ func (h *PropertyHandler) GetPropertiesByTenant(w http.ResponseWriter, r *http.R
 	}
 
 	// Legacy Fallback: Check for userEmail query parameter
-	userEmail := r.URL.Query().Get("userEmail")
 	if userEmail != "" {
 		properties, err := h.propertyService.GetPropertiesByTenantEmail(r.Context(), userEmail)
 		if err != nil {
@@ -981,8 +1031,13 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 		if tenantsArray, ok := tenants.([]interface{}); ok {
 			h.updateUsersWithRentedProperty(r.Context(), path, updatedProperty.OwnerUID, updatedProperty.OwnerName, tenantsArray)
 
+			h.updateUsersWithRentedProperty(r.Context(), path, updatedProperty.OwnerUID, updatedProperty.OwnerName, tenantsArray)
+
 			// Send email notifications for newly added tenants
 			h.sendTenantAddedEmails(r.Context(), updatedProperty, existingProperty.Tenants, tenantsArray)
+
+			// Send email notifications for Payment Due Date updates
+			h.sendPaymentDueDateUpdateEmails(r.Context(), updatedProperty, existingProperty.Tenants, tenantsArray)
 		}
 	}
 
@@ -1316,5 +1371,78 @@ func (h *PropertyHandler) sendTenantAddedEmails(ctx context.Context, property *m
 			} else {
 			}
 		}(tenantName, tenantEmail, tenantPhone)
+	}
+}
+
+// sendPaymentDueDateUpdateEmails sends email notifications when payment due date is updated
+func (h *PropertyHandler) sendPaymentDueDateUpdateEmails(ctx context.Context, property *models.Property, existingTenants []models.TenantInfo, newTenantsRaw []interface{}) {
+	// Get owner details
+	owner, err := h.userService.GetUserByID(ctx, property.OwnerUID)
+	if err != nil {
+		// Log error but continue with property details
+	}
+
+	ownerName := property.OwnerName
+	ownerEmail := property.OwnerEmail
+	ownerPhone := ""
+	if owner != nil {
+		ownerName = owner.Name
+		if owner.Email != "" {
+			ownerEmail = owner.Email
+		}
+		ownerPhone = owner.PhoneNumber
+	}
+
+	// Map existing tenants by ID for easy lookup
+	existingTenantsMap := make(map[string]models.TenantInfo)
+	for _, tenant := range existingTenants {
+		existingTenantsMap[tenant.ID] = tenant
+	}
+
+	// Process updated tenants
+	for _, tenantInterface := range newTenantsRaw {
+		tenantMap, ok := tenantInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		id, _ := tenantMap["id"].(string)
+		newDueDate, _ := tenantMap["paymentDueDate"].(string)
+		email, _ := tenantMap["email"].(string)
+		firstName, _ := tenantMap["firstName"].(string)
+		lastName, _ := tenantMap["lastName"].(string)
+
+		// Skip if ID missing or new due date missing
+		if id == "" || newDueDate == "" {
+			continue
+		}
+
+		// Check if tenant exists and due date changed
+		if existing, exists := existingTenantsMap[id]; exists {
+			if existing.PaymentDueDate != newDueDate {
+				tenantName := strings.TrimSpace(firstName + " " + lastName)
+				if tenantName == "" {
+					tenantName = "Tenant"
+				}
+
+				// Send email notification
+				go func(tName, tEmail, dueDate string) {
+					emailData := services.PaymentDueUpdateEmailData{
+						TenantName:      tName,
+						TenantEmail:     tEmail,
+						PropertyTitle:   property.Title,
+						PropertyAddress: property.Address + ", " + property.City,
+						NewDueDate:      dueDate,
+						OwnerName:       ownerName,
+						OwnerEmail:      ownerEmail,
+						OwnerPhone:      ownerPhone,
+					}
+
+					if err := h.emailService.SendPaymentDueUpdateNotification(emailData); err != nil {
+						// Log error
+					}
+				}(tenantName, email, newDueDate)
+			}
+		}
 	}
 }

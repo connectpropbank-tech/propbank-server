@@ -297,12 +297,21 @@ type CreatePropertyRequest struct {
 	ConstructedArea string `json:"constructedArea"`
 
 	// Tenant Information
-	TenantName   string `json:"tenantName"`
-	TenantEmail  string `json:"tenantEmail"`
-	PersonName   string `json:"personName"`
-	MobileNumber string `json:"mobileNumber"`
-	PrimaryNo    string `json:"primaryNo"`
-	UltNo        string `json:"ultNo"`
+	TenantFirstName        string      `json:"tenantFirstName"`
+	TenantLastName         string      `json:"tenantLastName"` // Replacing generic TenantName logic
+	TenantName             string      `json:"tenantName"`     // Legacy support / fallback
+	TenantEmail            string      `json:"tenantEmail"`
+	PersonName             string      `json:"personName"` // Keep for compatibility if needed
+	MobileNumber           string      `json:"mobileNumber"`
+	PrimaryNo              string      `json:"primaryNo"`
+	UltNo                  string      `json:"ultNo"`
+	TenantEmergencyContact string      `json:"tenantEmergencyContact"`
+	TenantPreviousAddress  string      `json:"tenantPreviousAddress"`
+	TenantEmploymentStatus string      `json:"tenantEmploymentStatus"`
+	TenantEmployer         string      `json:"tenantEmployer"`
+	TenantMonthlyIncome    string      `json:"tenantMonthlyIncome"`
+	TenantIsMarried        bool        `json:"tenantIsMarried"`
+	TenantSpouse           *SpouseInfo `json:"tenantSpouse"` // Re-use SpouseInfo struct
 
 	// Pricing Details
 	MonthlyRent  string `json:"monthlyRent"`

@@ -55,8 +55,14 @@ func InitFirebase() {
 
 	// Check if creds is JSON content (starts with {) or a file path
 	if len(creds) > 0 && creds[0] == '{' {
+		fmt.Println("Loading Firebase credentials from JSON content")
 		opt = option.WithCredentialsJSON([]byte(creds))
 	} else {
+		if creds == "" {
+			fmt.Println("Warning: FIREBASE_CREDENTIALS is empty. Application Default Credentials will be used.")
+		} else {
+			fmt.Println("Loading Firebase credentials from file path")
+		}
 		opt = option.WithCredentialsFile(creds)
 	}
 

@@ -21,6 +21,19 @@ type CreateUserRequest struct {
 	Role        models.UserRole `json:"role"`
 }
 
+// LoginRequest represents the login request body
+type LoginRequest struct {
+	UID string `json:"uid"`
+}
+
+// LoginResponse represents the login response
+type LoginResponse struct {
+	Success bool         `json:"success"`
+	Token   string       `json:"token"`
+	User    *models.User `json:"user,omitempty"`
+	Message string       `json:"message"`
+}
+
 // AuthHandler handles authentication-related requests
 type AuthHandler struct {
 	userService *services.UserService
@@ -91,6 +104,19 @@ func (ah *AuthHandler) CreateOrUpdateUser(w http.ResponseWriter, r *http.Request
 	normalizedPhone := ""
 	if req.PhoneNumber != "" {
 		normalizedPhone = services.NormalizePhoneNumber(req.PhoneNumber)
+
+		// Check if this phone number is already registered to another user
+		existingUserWithPhone, err := ah.userService.GetUserByPhoneNumber(ctx, normalizedPhone)
+		if err == nil && existingUserWithPhone != nil && existingUserWithPhone.UID != req.UID {
+			response := models.UserResponse{
+				Success: false,
+				Message: "This phone number is already registered with another account",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
 	}
 
 	// Create user model
@@ -105,11 +131,19 @@ func (ah *AuthHandler) CreateOrUpdateUser(w http.ResponseWriter, r *http.Request
 	}
 
 	if isUpdate {
-		// Update existing user (preserve role if it exists and req.Role is empty)
+		// Update existing user timestamps
 		user.CreatedAt = existingUser.CreatedAt
 		user.UpdatedAt = time.Now()
-		if existingUser.Role != "" && req.Role == models.RoleIndividual {
-			user.Role = existingUser.Role // Preserve existing role if not explicitly changed
+
+		// If this user already has a complete registration (phone + role),
+		// NEVER overwrite those fields. This prevents re-registration with
+		// a different phone number using the same Google account.
+		if existingUser.PhoneNumber != "" && string(existingUser.Role) != "" {
+			user.PhoneNumber = existingUser.PhoneNumber
+			user.Role = existingUser.Role
+		} else if existingUser.Role != "" && req.Role == models.RoleIndividual {
+			// Preserve existing role if not explicitly changed
+			user.Role = existingUser.Role
 		}
 	} else {
 		// Create new user
@@ -146,4 +180,72 @@ func (ah *AuthHandler) CreateOrUpdateUser(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
+}
+
+// Login handles POST /auth/login - issues JWT token for existing user
+func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response := LoginResponse{
+			Success: false,
+			Message: "Invalid request body",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if req.UID == "" {
+		response := LoginResponse{
+			Success: false,
+			Message: "UID is required",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	ctx := context.Background()
+	user, err := ah.userService.GetUserByID(ctx, req.UID)
+	if err != nil || user == nil {
+		response := LoginResponse{
+			Success: false,
+			Message: "User not found",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Generate JWT Token
+	token, err := services.GenerateToken(user.UID, string(user.Role))
+	if err != nil {
+		response := LoginResponse{
+			Success: false,
+			Message: "Failed to generate token",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	response := LoginResponse{
+		Success: true,
+		Token:   token,
+		User:    user,
+		Message: "Login successful",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }

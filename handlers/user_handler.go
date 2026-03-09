@@ -150,6 +150,20 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	normalizedPhone := ""
 	if userReq.PhoneNumber != "" {
 		normalizedPhone = services.NormalizePhoneNumber(userReq.PhoneNumber)
+
+		// Check if this phone number is already registered to another user
+		ctx := context.Background()
+		existingUserWithPhone, err := uh.userService.GetUserByPhoneNumber(ctx, normalizedPhone)
+		if err == nil && existingUserWithPhone != nil && existingUserWithPhone.UID != userReq.UID {
+			response := models.UserResponse{
+				Success: false,
+				Message: "This phone number is already registered with another account",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
 	}
 
 	// Create user object
@@ -359,7 +373,22 @@ func (uh *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		existingUser.Email = userReq.Email
 	}
 	if userReq.PhoneNumber != "" {
-		existingUser.PhoneNumber = services.NormalizePhoneNumber(userReq.PhoneNumber)
+		normalizedPhone := services.NormalizePhoneNumber(userReq.PhoneNumber)
+
+		// Check if this phone number is already registered to another user
+		existingUserWithPhone, err := uh.userService.GetUserByPhoneNumber(ctx, normalizedPhone)
+		if err == nil && existingUserWithPhone != nil && existingUserWithPhone.UID != path {
+			response := models.UserResponse{
+				Success: false,
+				Message: "This phone number is already registered with another account",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		existingUser.PhoneNumber = normalizedPhone
 	}
 
 	// Only allow role update if it's currently unset or empty, or if we have admin logic (skipped for now)

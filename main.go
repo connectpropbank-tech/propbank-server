@@ -47,7 +47,10 @@ func main() {
 	propertyHandler := handlers.NewPropertyHandler(config.GetFirestoreClient())
 	visitHandler := handlers.NewVisitHandler(config.GetFirestoreClient())
 	serviceHandler := handlers.NewServiceHandler(config.GetFirestoreClient(), uploadHandler.GetR2Service())
-	adminNotificationHandler := handlers.NewAdminNotificationHandler(config.GetFirestoreClient())
+	// Initialize email service and reminder scheduler
+	emailService := services.NewEmailService()
+
+	adminNotificationHandler := handlers.NewAdminNotificationHandler(config.GetFirestoreClient(), emailService)
 	siteSettingsHandler := handlers.NewSiteSettingsHandler(config.GetFirestoreClient())
 	agreementHandler := handlers.NewAgreementHandler(config.GetFirestoreClient())
 	documentHandler := handlers.NewDocumentHandler(config.GetFirestoreClient(), uploadHandler.GetR2Service())
@@ -56,7 +59,6 @@ func main() {
 	}
 
 	// Initialize email service and reminder scheduler
-	emailService := services.NewEmailService()
 	visitService := services.NewVisitService(config.GetFirestoreClient())
 	userService := services.NewUserService(config.GetFirestoreClient())
 	propertyService := services.NewPropertyService(config.GetFirestoreClient())

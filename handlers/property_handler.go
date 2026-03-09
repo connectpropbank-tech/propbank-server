@@ -1029,8 +1029,7 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 	// If tenants were updated, map property information to users with userUID and send email notifications
 	if tenants, hasTenants := updateData["tenants"]; hasTenants {
 		if tenantsArray, ok := tenants.([]interface{}); ok {
-			h.updateUsersWithRentedProperty(r.Context(), path, updatedProperty.OwnerUID, updatedProperty.OwnerName, tenantsArray)
-
+			// Map property information to users with userUID
 			h.updateUsersWithRentedProperty(r.Context(), path, updatedProperty.OwnerUID, updatedProperty.OwnerName, tenantsArray)
 
 			// Send email notifications for newly added tenants
@@ -1336,6 +1335,11 @@ func (h *PropertyHandler) sendTenantAddedEmails(ctx context.Context, property *m
 		tenantPhone, _ := tenantMap["phone"].(string)
 		isActive, _ := tenantMap["isActive"].(bool)
 
+		// Extract lease dates and rent from tenant map if present
+		leaseStart, _ := tenantMap["leaseStartDate"].(string)
+		leaseEnd, _ := tenantMap["leaseEndDate"].(string)
+		tenantRent, _ := tenantMap["monthlyRent"].(string)
+
 		// Skip if tenant email already existed (not a new tenant) or if inactive
 		if tenantEmail != "" && existingTenantEmails[tenantEmail] {
 			continue
@@ -1350,8 +1354,22 @@ func (h *PropertyHandler) sendTenantAddedEmails(ctx context.Context, property *m
 			tenantName = "Tenant"
 		}
 
+		// Use tenant-specific values if available, otherwise fallback to property values
+		agreementStart := leaseStart
+		if agreementStart == "" {
+			agreementStart = property.AgreementStartDate
+		}
+		agreementEnd := leaseEnd
+		if agreementEnd == "" {
+			agreementEnd = property.AgreementEndDate
+		}
+		monthlyRent := tenantRent
+		if monthlyRent == "" {
+			monthlyRent = property.MonthlyRent
+		}
+
 		// Send email notification
-		go func(tName, tEmail, tPhone string) {
+		go func(tName, tEmail, tPhone, aStart, aEnd, mRent string) {
 			emailData := services.TenantAddedEmailData{
 				TenantName:      tName,
 				TenantEmail:     tEmail,
@@ -1362,15 +1380,17 @@ func (h *PropertyHandler) sendTenantAddedEmails(ctx context.Context, property *m
 				PropertyTitle:   property.Title,
 				PropertyAddress: property.Location,
 				PropertyType:    property.PropertyType,
-				MonthlyRent:     property.MonthlyRent,
-				AgreementStart:  property.AgreementStartDate,
-				AgreementEnd:    property.AgreementEndDate,
+				MonthlyRent:     mRent,
+				AgreementStart:  aStart,
+				AgreementEnd:    aEnd,
 			}
 
 			if err := h.emailService.SendTenantAddedNotification(emailData); err != nil {
+				fmt.Printf("[PropertyHandler] ERROR sending tenant emails for %s: %v\n", tEmail, err)
 			} else {
+				fmt.Printf("[PropertyHandler] SUCCESS tenant emails triggered for %s\n", tEmail)
 			}
-		}(tenantName, tenantEmail, tenantPhone)
+		}(tenantName, tenantEmail, tenantPhone, agreementStart, agreementEnd, monthlyRent)
 	}
 }
 

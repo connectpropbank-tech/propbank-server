@@ -3,7 +3,9 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"shoprop-backend/models"
@@ -15,12 +17,14 @@ import (
 type AdminNotificationHandler struct {
 	service         *services.AdminNotificationService
 	propertyService *services.PropertyService
+	emailService    *services.EmailService
 }
 
-func NewAdminNotificationHandler(client *firestore.Client) *AdminNotificationHandler {
+func NewAdminNotificationHandler(client *firestore.Client, emailService *services.EmailService) *AdminNotificationHandler {
 	return &AdminNotificationHandler{
 		service:         services.NewAdminNotificationService(client),
 		propertyService: services.NewPropertyService(client),
+		emailService:    emailService,
 	}
 }
 
@@ -72,6 +76,22 @@ func (h *AdminNotificationHandler) CreateAdminNotification(w http.ResponseWriter
 	if err != nil {
 		http.Error(w, "Failed to create notification", http.StatusInternalServerError)
 		return
+	}
+
+	// Trigger email notification for general inquiries
+	if req.Type == "general_inquiry" {
+		adminEmail := "connectpropbank@gmail.com" // Default admin email
+		// If ADMIN_EMAIL is set, use that as the recipient
+		if adminEnv := os.Getenv("ADMIN_EMAIL"); adminEnv != "" {
+			adminEmail = adminEnv
+		}
+
+		// Send in background so we don't block the API response
+		go func() {
+			if err := h.emailService.SendGeneralInquiryNotification(adminEmail, *notification); err != nil {
+				fmt.Printf("Error sending general inquiry email: %v\n", err)
+			}
+		}()
 	}
 
 	w.Header().Set("Content-Type", "application/json")

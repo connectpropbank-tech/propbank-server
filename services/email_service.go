@@ -2,31 +2,30 @@ package services
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"net/smtp"
 	"os"
 	"shoprop-backend/models"
 	"time"
+
+	"github.com/resend/resend-go/v2"
 )
 
 // India Standard Time (IST) is UTC+5:30
 var IST = time.FixedZone("IST", 5*60*60+30*60)
 
 type EmailService struct {
-	SMTPHost string
-	SMTPPort string
-	Email    string
-	Password string
+	resendClient *resend.Client
+	FromEmail    string
 }
 
 // NewEmailService creates a new email service instance
 func NewEmailService() *EmailService {
+	apiKey := os.Getenv("RESEND_API_KEY")
+	client := resend.NewClient(apiKey)
+
 	return &EmailService{
-		SMTPHost: getEnvOrDefault("SMTP_HOST", "smtp.gmail.com"),
-		SMTPPort: getEnvOrDefault("SMTP_PORT", "587"),
-		Email:    getEnvOrDefault("SMTP_EMAIL", "connectpropbank@gmail.com"),
-		Password: os.Getenv("SMTP_PASSWORD"), // Gmail App Password - required
+		resendClient: client,
+		FromEmail:    getEnvOrDefault("FROM_EMAIL", "connectpropbank@gmail.com"),
 	}
 }
 
@@ -245,71 +244,154 @@ func (es *EmailService) SendVisitConfirmation(user *models.User, visit *models.V
 	return es.sendEmail(user.Email, subject, body)
 }
 
-// sendEmail sends an email using SMTP with TLS
-func (es *EmailService) sendEmail(to, subject, body string) error {
+// SendGeneralInquiryNotification sends an email to admin for a new quick inquiry
+func (es *EmailService) SendGeneralInquiryNotification(adminEmail string, req models.AdminNotification) error {
+	subject := fmt.Sprintf("📩 New Quick Inquiry: %s", req.UserName)
 
-	// Check if email credentials are properly configured
-	if es.Password == "" {
+	listingTypeDisplay := "Renting"
+	if req.InquiryType == "buy" {
+		listingTypeDisplay = "Buying"
+	} else if req.InquiryType == "sell" {
+		listingTypeDisplay = "Selling"
+	}
+
+	visitInfo := "Not requested"
+	if req.RequestVisit {
+		visitInfo = fmt.Sprintf("Requested on %s at %s", req.VisitDate, req.VisitTime)
+	}
+
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+    <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+        <!-- Header -->
+        <tr>
+            <td style="background: linear-gradient(135deg, #1e293b 0%%, #334155 100%%); padding: 40px 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.025em;">🏠 Propbank</h1>
+                <p style="color: #94a3b8; margin: 10px 0 0 0; font-size: 14px; font-weight: 500;">New Quick Inquiry Received</p>
+            </td>
+        </tr>
+        
+        <!-- Main Content -->
+        <tr>
+            <td style="padding: 40px 30px;">
+                <div style="margin-bottom: 30px;">
+                    <h2 style="color: #0f172a; margin: 0 0 10px 0; font-size: 20px; font-weight: 600;">Full Inquiry Details</h2>
+                    <p style="color: #64748b; font-size: 15px; line-height: 1.5; margin: 0;">A potential client has just submitted an inquiry through the Quick Inquiry form.</p>
+                </div>
+                
+                <!-- Client Info Card -->
+                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #f1f5f9; border-radius: 12px; margin-bottom: 24px;">
+                    <tr>
+                        <td style="padding: 24px;">
+                            <h3 style="color: #475569; margin: 0 0 16px 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">👤 Client Information</h3>
+                            <table cellpadding="0" cellspacing="0" width="100%%">
+                                <tr>
+                                    <td style="padding: 4px 0; color: #64748b; font-size: 14px; width: 100px;">Name:</td>
+                                    <td style="padding: 4px 0; color: #0f172a; font-size: 14px; font-weight: 600;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 0; color: #64748b; font-size: 14px;">Email:</td>
+                                    <td style="padding: 4px 0; color: #0f172a; font-size: 14px; font-weight: 500;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 0; color: #64748b; font-size: 14px;">Phone:</td>
+                                    <td style="padding: 4px 0; color: #0f172a; font-size: 14px; font-weight: 500;">%s</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Inquiry Details -->
+                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #f1f5f9; border-radius: 12px; margin-bottom: 24px;">
+                    <tr>
+                        <td style="padding: 24px;">
+                            <h3 style="color: #475569; margin: 0 0 16px 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">🏢 Property Interest</h3>
+                            <table cellpadding="0" cellspacing="0" width="100%%">
+                                <tr>
+                                    <td style="padding: 4px 0; color: #64748b; font-size: 14px; width: 100px;">Interested in:</td>
+                                    <td style="padding: 4px 0;"><span style="background-color: #cbd5e1; color: #0f172a; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700;">%s</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 0; color: #64748b; font-size: 14px;">Type:</td>
+                                    <td style="padding: 4px 0; color: #0f172a; font-size: 14px; font-weight: 600; text-transform: capitalize;">%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 0; color: #64748b; font-size: 14px;">Visit:</td>
+                                    <td style="padding: 4px 0; color: #0f172a; font-size: 14px; font-weight: 500;">%s</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <div style="background-color: #fff7ed; border-left: 4px solid #f97316; padding: 20px; border-radius: 4px;">
+                    <p style="color: #7c2d12; font-size: 14px; margin: 0; line-height: 1.6;">
+                        <strong>Message:</strong><br/>
+                        %s
+                    </p>
+                </div>
+                
+                <div style="margin-top: 40px; text-align: center;">
+                    <a href="mailto:%s" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Reply to Client</a>
+                </div>
+            </td>
+        </tr>
+        
+        <!-- Footer -->
+        <tr>
+            <td style="background-color: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="color: #94a3b8; font-size: 12px; margin: 0;">Sent automatically by Propbank Admin System.</p>
+                <p style="color: #cbd5e1; font-size: 11px; margin: 8px 0 0 0;">© 2026 Propbank. All rights reserved.</p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`,
+		req.UserName,
+		req.UserEmail,
+		req.UserPhone,
+		listingTypeDisplay,
+		req.PropertyType,
+		visitInfo,
+		req.Message,
+		req.UserEmail,
+	)
+
+	return es.sendEmail(adminEmail, subject, body)
+}
+
+// sendEmail sends an email using Resend API
+func (es *EmailService) sendEmail(to, subject, body string) error {
+	// If API key is not set, skip sending (useful for dev/test)
+	if os.Getenv("RESEND_API_KEY") == "" {
+		fmt.Printf("[EmailService] RESEND_API_KEY not set, skipping email to %s\n", to)
 		return nil
 	}
 
-	// Build email message with proper headers
-	from := es.Email
-	msg := fmt.Sprintf("From: Propbank <%s>\r\n"+
-		"To: %s\r\n"+
-		"Subject: %s\r\n"+
-		"MIME-Version: 1.0\r\n"+
-		"Content-Type: text/html; charset=UTF-8\r\n"+
-		"\r\n%s", from, to, subject, body)
+	fmt.Printf("[EmailService] Sending email to %s using sender %s\n", to, es.FromEmail)
 
-	// Connect to SMTP server
-	addr := fmt.Sprintf("%s:%s", es.SMTPHost, es.SMTPPort)
-	conn, err := smtp.Dial(addr)
+	params := &resend.SendEmailRequest{
+		From:    fmt.Sprintf("Propbank <%s>", es.FromEmail),
+		To:      []string{to},
+		Subject: subject,
+		Html:    body,
+	}
+
+	_, err := es.resendClient.Emails.Send(params)
 	if err != nil {
-		return fmt.Errorf("failed to connect to SMTP server: %v", err)
-	}
-	defer conn.Close()
-
-	// Start TLS
-	tlsConfig := &tls.Config{
-		ServerName: es.SMTPHost,
-	}
-	if err = conn.StartTLS(tlsConfig); err != nil {
-		return fmt.Errorf("failed to start TLS: %v", err)
+		fmt.Printf("[EmailService] ERROR sending to %s: %v\n", to, err)
+		return fmt.Errorf("failed to send email via Resend: %v", err)
 	}
 
-	// Authenticate
-	auth := smtp.PlainAuth("", es.Email, es.Password, es.SMTPHost)
-	if err = conn.Auth(auth); err != nil {
-		return fmt.Errorf("failed to authenticate: %v", err)
-	}
-
-	// Set sender
-	if err = conn.Mail(from); err != nil {
-		return fmt.Errorf("failed to set sender: %v", err)
-	}
-
-	// Set recipient
-	if err = conn.Rcpt(to); err != nil {
-		return fmt.Errorf("failed to set recipient: %v", err)
-	}
-
-	// Send message body
-	writer, err := conn.Data()
-	if err != nil {
-		return fmt.Errorf("failed to get data writer: %v", err)
-	}
-
-	_, err = writer.Write([]byte(msg))
-	if err != nil {
-		return fmt.Errorf("failed to write message: %v", err)
-	}
-
-	err = writer.Close()
-	if err != nil {
-		return fmt.Errorf("failed to close writer: %v", err)
-	}
-
+	fmt.Printf("[EmailService] SUCCESS: Email sent to %s\n", to)
 	return nil
 }
 
@@ -368,13 +450,16 @@ type TenantAddedEmailData struct {
 
 // SendTenantAddedNotification sends email to both owner and tenant when tenant is added
 func (es *EmailService) SendTenantAddedNotification(data TenantAddedEmailData) error {
+	var errs []error
+
 	// Send email to Tenant
 	tenantSubject := "🏠 Welcome! You've been added as a Tenant - Propbank"
 	tenantBody := es.buildTenantAddedEmail(data, true)
 
 	if data.TenantEmail != "" {
 		if err := es.sendEmail(data.TenantEmail, tenantSubject, tenantBody); err != nil {
-		} else {
+			fmt.Printf("[EmailService] Failed to send tenant notification: %v\n", err)
+			errs = append(errs, fmt.Errorf("tenant email failed: %v", err))
 		}
 	}
 
@@ -384,8 +469,13 @@ func (es *EmailService) SendTenantAddedNotification(data TenantAddedEmailData) e
 
 	if data.OwnerEmail != "" {
 		if err := es.sendEmail(data.OwnerEmail, ownerSubject, ownerBody); err != nil {
-			return err
+			fmt.Printf("[EmailService] Failed to send owner notification: %v\n", err)
+			errs = append(errs, fmt.Errorf("owner email failed: %v", err))
 		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("email notification delivery failed: %v", errs)
 	}
 
 	return nil

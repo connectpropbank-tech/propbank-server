@@ -38,6 +38,7 @@ type AdminNotification struct {
 	IsRead       bool       `firestore:"isRead" json:"isRead"`
 	ResolvedAt   *time.Time `firestore:"resolvedAt,omitempty" json:"resolvedAt,omitempty"` // Timestamp when marked as resolved
 	Priority     string     `firestore:"priority" json:"priority"`
+	AdminRemarks string     `firestore:"adminRemarks,omitempty" json:"adminRemarks,omitempty"`
 	CreatedAt    time.Time  `firestore:"createdAt" json:"createdAt"`
 	UpdatedAt    time.Time  `firestore:"updatedAt" json:"updatedAt"`
 }
@@ -74,4 +75,5 @@ type CreateAdminNotificationRequest struct {
 	Timestamp    string `json:"timestamp" validate:"required"`
 	IsRead       bool   `json:"isRead"`
 	Priority     string `json:"priority"`
+	AdminRemarks string `json:"adminRemarks,omitempty"`
 }

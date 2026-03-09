@@ -67,6 +67,7 @@ func (s *AdminNotificationService) CreateNotification(ctx context.Context, req m
 		Timestamp:    timestamp,
 		IsRead:       req.IsRead,
 		Priority:     req.Priority,
+		AdminRemarks: req.AdminRemarks,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
@@ -269,4 +270,28 @@ func (s *AdminNotificationService) GetNotificationsByPropertyID(ctx context.Cont
 	}
 
 	return notifications, nil
+}
+
+// UpdateNotificationRemarks updates the admin remarks for a notification
+func (s *AdminNotificationService) UpdateNotificationRemarks(ctx context.Context, notificationID string, remarks string) error {
+	collection := s.client.Collection("admin_notifications")
+
+	now := time.Now()
+	// Update the notification
+	_, err := collection.Doc(notificationID).Update(ctx, []firestore.Update{
+		{
+			Path:  "adminRemarks",
+			Value: remarks,
+		},
+		{
+			Path:  "updatedAt",
+			Value: now,
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

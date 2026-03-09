@@ -417,6 +417,8 @@ func main() {
 		}
 		if r.Method == "PUT" && strings.HasSuffix(r.URL.Path, "/read") {
 			adminNotificationHandler.MarkNotificationAsRead(w, r)
+		} else if r.Method == "PUT" && strings.HasSuffix(r.URL.Path, "/remarks") {
+			adminNotificationHandler.UpdateAdminRemarks(w, r)
 		} else if r.Method == "DELETE" {
 			adminNotificationHandler.DeleteAdminNotification(w, r)
 		} else {

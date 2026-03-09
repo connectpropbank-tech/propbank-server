@@ -211,3 +211,39 @@ func (h *AdminNotificationHandler) DeleteAdminNotification(w http.ResponseWriter
 		"id":      notificationID,
 	})
 }
+
+// UpdateAdminRemarks handles PUT /admin/notifications/{id}/remarks
+func (h *AdminNotificationHandler) UpdateAdminRemarks(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+
+	// Extract ID from URL path
+	notificationID := strings.TrimPrefix(r.URL.Path, "/admin/notifications/")
+	notificationID = strings.TrimSuffix(notificationID, "/remarks")
+
+	if notificationID == "" {
+		http.Error(w, "Notification ID is required", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Remarks string `json:"remarks"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err := h.service.UpdateNotificationRemarks(ctx, notificationID, req.Remarks)
+	if err != nil {
+		http.Error(w, "Failed to update admin remarks", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Admin remarks updated successfully",
+		"id":      notificationID,
+		"remarks": req.Remarks,
+	})
+}

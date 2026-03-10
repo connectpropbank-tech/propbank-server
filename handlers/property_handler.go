@@ -984,17 +984,19 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 			} else {
 				updateData[key] = value
 			}
-		case "isActive":
-			// Ensure isActive is properly converted to boolean
-			// Keep status and isActive independent - do NOT sync
+		case "isActive", "isRented", "isSold":
+			// isActive=false must ONLY be set via the explicit delete/archive endpoint,
+			// never via a general property edit. Skip false values here.
 			if boolVal, ok := value.(bool); ok {
-				updateData[key] = boolVal
+				if boolVal {
+					updateData[key] = true // only allow explicit true
+				}
+				// Skip if false — protects against accidental property disappearance
 			} else if strVal, ok := value.(string); ok {
-				// Handle string "true"/"false" from JSON
-				boolVal := (strVal == "true")
-				updateData[key] = boolVal
-			} else {
-				updateData[key] = value
+				if strVal == "true" {
+					updateData[key] = true
+				}
+				// Skip "false" strings too
 			}
 		default:
 			updateData[key] = value

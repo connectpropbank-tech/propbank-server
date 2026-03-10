@@ -326,10 +326,8 @@ func (s *PropertyService) GetArchivedPropertiesByOwner(ctx context.Context, owne
 			continue // Skip invalid documents
 		}
 
-		// Filter for archived properties (isActive == false)
-		// Properties with isActive explicitly set to false should appear in archived
-		// Properties without isActive field or with isActive=true should not appear
-		if property.IsActive == false {
+		// Filter for archived properties: status is "inactive" OR isActive is false
+		if property.Status == "inactive" || property.IsActive == false {
 			properties = append(properties, property)
 		}
 	}

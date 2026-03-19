@@ -103,7 +103,30 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create admin notification
+	// Create admin notification message with details
+	var reviewDetails string
+	if req.ReviewerType == "tenant" {
+		reviewDetails = strings.Join([]string{
+			"A. Reviewing Owner:",
+			"- Owner Understandable: " + req.TenantPart.OwnerUnderstandable,
+			"- Soft Nature: " + req.TenantPart.SoftNature,
+			"- Owner Transparent: " + req.TenantPart.OwnerTransparent,
+			"- Problem Solver: " + req.TenantPart.ProblemSolver,
+			"- Easy on Refund Money: " + req.TenantPart.EasyOnRefundMoney,
+			"- Overall Experience: " + req.TenantPart.OverallExperience,
+		}, "\n")
+	} else {
+		reviewDetails = strings.Join([]string{
+			"B. Reviewing Tenant:",
+			"- Tenant Understandable: " + req.OwnerPart.TenantUnderstandable,
+			"- Soft Nature: " + req.OwnerPart.SoftNature,
+			"- Tenant Transparent: " + req.OwnerPart.TenantTransparent,
+			"- Problem Solver: " + req.OwnerPart.ProblemSolver,
+			"- Punctual on Payment: " + req.OwnerPart.PunctualOnPayment,
+			"- Overall Experience: " + req.OwnerPart.OverallExperience,
+		}, "\n")
+	}
+
 	notificationReq := models.CreateAdminNotificationRequest{
 		Type:  "review",
 		Title: "New Review Submitted",
@@ -111,6 +134,8 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 			reviewer.Name + " (" + req.ReviewerType + ") submitted a review for property: " + property.Title,
 			"Property ID: " + req.PropertyID,
 			"Reviewer: " + reviewer.Name + " (" + reviewer.Email + ")",
+			"",
+			reviewDetails,
 		}, "\n"),
 		PropertyID:          req.PropertyID,
 		OwnerID:             property.OwnerUID,

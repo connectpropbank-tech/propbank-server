@@ -17,6 +17,7 @@ import (
 type AdminNotificationHandler struct {
 	service         *services.AdminNotificationService
 	propertyService *services.PropertyService
+	userService     *services.UserService
 	emailService    *services.EmailService
 }
 
@@ -24,6 +25,7 @@ func NewAdminNotificationHandler(client *firestore.Client, emailService *service
 	return &AdminNotificationHandler{
 		service:         services.NewAdminNotificationService(client),
 		propertyService: services.NewPropertyService(client),
+		userService:     services.NewUserService(client),
 		emailService:    emailService,
 	}
 }
@@ -38,13 +40,10 @@ func (h *AdminNotificationHandler) CreateAdminNotification(w http.ResponseWriter
 		return
 	}
 
-	// For property_enquiry notifications, fetch property details from database if PropertyID is provided
-	if req.Type == "property_enquiry" && req.PropertyID != "" {
+	// For property-related notifications, fetch property and owner details if needed
+	if (req.Type == "property_enquiry" || req.Type == "service_request" || req.Type == "want_to_sell" || req.Type == "want_to_sell_cancelled") && req.PropertyID != "" {
 		property, err := h.propertyService.GetPropertyByID(ctx, req.PropertyID)
-		if err != nil {
-			// Property not found, continue with request data
-		} else {
-
+		if err == nil {
 			// Override with actual property data from database (prioritize database values)
 			if property.Title != "" {
 				req.PropertyTitle = property.Title
@@ -52,14 +51,13 @@ func (h *AdminNotificationHandler) CreateAdminNotification(w http.ResponseWriter
 			if property.Address != "" {
 				req.PropertyAddress = property.Address
 			} else if property.Location != "" {
-				// Fallback to Location if Address is empty
 				req.PropertyAddress = property.Location
 			}
 			if property.ListingType != "" {
 				req.PropertyListingType = property.ListingType
 			}
 
-			// Also update owner details if available
+			// Update owner details
 			if property.OwnerName != "" && req.OwnerName == "" {
 				req.OwnerName = property.OwnerName
 			}
@@ -68,6 +66,35 @@ func (h *AdminNotificationHandler) CreateAdminNotification(w http.ResponseWriter
 			}
 			if property.OwnerUID != "" && req.OwnerID == "" {
 				req.OwnerID = property.OwnerUID
+			}
+
+			// ALWAYS fetch latest owner phone if missing
+			if req.OwnerPhone == "" && property.OwnerUID != "" {
+				owner, userErr := h.userService.GetUserByID(ctx, property.OwnerUID)
+				if userErr == nil && owner != nil {
+					req.OwnerPhone = owner.PhoneNumber
+					// Also update email/name if they were somehow missing
+					if req.OwnerEmail == "" {
+						req.OwnerEmail = owner.Email
+					}
+					if req.OwnerName == "" {
+						req.OwnerName = owner.Name
+					}
+				}
+			}
+		}
+	}
+
+	// For any notification with a UserID, ensure we have the user's phone number
+	if req.UserID != "" && req.UserPhone == "" {
+		user, userErr := h.userService.GetUserByID(ctx, req.UserID)
+		if userErr == nil && user != nil {
+			req.UserPhone = user.PhoneNumber
+			if req.UserEmail == "" {
+				req.UserEmail = user.Email
+			}
+			if req.UserName == "" {
+				req.UserName = user.Name
 			}
 		}
 	}
@@ -226,14 +253,15 @@ func (h *AdminNotificationHandler) UpdateAdminRemarks(w http.ResponseWriter, r *
 	}
 
 	var req struct {
-		Remarks string `json:"remarks"`
+		Remarks    string `json:"remarks"`
+		AdminImage string `json:"adminImage"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	err := h.service.UpdateNotificationRemarks(ctx, notificationID, req.Remarks)
+	err := h.service.UpdateNotificationRemarks(ctx, notificationID, req.Remarks, req.AdminImage)
 	if err != nil {
 		http.Error(w, "Failed to update admin remarks", http.StatusInternalServerError)
 		return
@@ -241,9 +269,10 @@ func (h *AdminNotificationHandler) UpdateAdminRemarks(w http.ResponseWriter, r *
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": "Admin remarks updated successfully",
-		"id":      notificationID,
-		"remarks": req.Remarks,
+		"success":    true,
+		"message":    "Admin remarks updated successfully",
+		"id":         notificationID,
+		"remarks":    req.Remarks,
+		"adminImage": req.AdminImage,
 	})
 }

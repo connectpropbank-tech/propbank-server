@@ -84,6 +84,24 @@ func (h *InspectionReportHandler) CreateInspectionReport(w http.ResponseWriter, 
 		return
 	}
 
+	// Get tenant details if any
+	var tenantName, tenantEmail, tenantPhone string
+	for _, tenant := range property.Tenants {
+		if tenant.IsActive {
+			tenantName = fmt.Sprintf("%s %s", tenant.FirstName, tenant.LastName)
+			tenantEmail = tenant.Email
+			tenantPhone = tenant.Phone
+			break
+		}
+	}
+
+	// Get buyers if any
+	var buyersString string
+	if len(property.Buyers) > 0 {
+		buyersJSON, _ := json.Marshal(property.Buyers)
+		buyersString = string(buyersJSON)
+	}
+
 	// Create admin notification
 	notificationReq := models.CreateAdminNotificationRequest{
 		Type:  "inspection_report",
@@ -105,6 +123,10 @@ func (h *InspectionReportHandler) CreateInspectionReport(w http.ResponseWriter, 
 		PropertyTitle:       property.Title,
 		PropertyAddress:     property.Address,
 		PropertyListingType: property.ListingType,
+		TenantName:          tenantName,
+		TenantEmail:         tenantEmail,
+		TenantPhone:         tenantPhone,
+		Buyers:              buyersString,
 		Timestamp:           time.Now().Format(time.RFC3339),
 		IsRead:              false,
 		Priority:            "medium",

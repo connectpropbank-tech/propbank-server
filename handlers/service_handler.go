@@ -19,6 +19,7 @@ type ServiceHandler struct {
 	serviceService           *services.ServiceService
 	r2Service                *services.R2StorageService
 	adminNotificationService *services.AdminNotificationService
+	propertyService          *services.PropertyService
 }
 
 // NewServiceHandler creates a new ServiceHandler
@@ -27,6 +28,7 @@ func NewServiceHandler(client *firestore.Client, r2Service *services.R2StorageSe
 		serviceService:           services.NewServiceService(client),
 		r2Service:                r2Service,
 		adminNotificationService: services.NewAdminNotificationService(client),
+		propertyService:          services.NewPropertyService(client),
 	}
 }
 
@@ -441,21 +443,58 @@ func (sh *ServiceHandler) PopulateServices(w http.ResponseWriter, r *http.Reques
 
 }
 
-// createServiceRequestNotification creates an admin notification for a new service request
 func (sh *ServiceHandler) createServiceRequestNotification(ctx context.Context, serviceRequest *models.ServiceRequest) {
+	// Fetch property details to get owner, tenant and buyer info if propertyID is provided
+	var ownerID, ownerName, ownerEmail, ownerPhone string
+	var tenantName, tenantEmail, tenantPhone string
+	var buyersString string
+	if serviceRequest.PropertyID != "" {
+		property, err := sh.propertyService.GetPropertyByID(ctx, serviceRequest.PropertyID)
+		if err == nil && property != nil {
+			ownerID = property.OwnerUID
+			ownerName = property.OwnerName
+			ownerEmail = property.OwnerEmail
+			ownerPhone = property.OwnerPhone
+
+			// Get active tenant if any
+			for _, tenant := range property.Tenants {
+				if tenant.IsActive {
+					tenantName = fmt.Sprintf("%s %s", tenant.FirstName, tenant.LastName)
+					tenantEmail = tenant.Email
+					tenantPhone = tenant.Phone
+					break
+				}
+			}
+
+			// Get buyers if any
+			if len(property.Buyers) > 0 {
+				buyersJSON, _ := json.Marshal(property.Buyers)
+				buyersString = string(buyersJSON)
+			}
+		}
+	}
+
 	// Create notification request
 	notificationReq := models.CreateAdminNotificationRequest{
 		Type:           "service_request",
 		Title:          "New Service Request",
 		Message:        fmt.Sprintf("Service request from %s for %s", serviceRequest.UserName, serviceRequest.ServiceName),
-		PropertyID:     serviceRequest.PropertyID, // May be empty for non-property-specific services
+		PropertyID:     serviceRequest.PropertyID,
+		OwnerID:        ownerID,
+		OwnerName:      ownerName,
+		OwnerEmail:     ownerEmail,
+		OwnerPhone:     ownerPhone,
+		TenantName:     tenantName,
+		TenantEmail:    tenantEmail,
+		TenantPhone:    tenantPhone,
+		Buyers:         buyersString,
 		UserID:         serviceRequest.UserUID,
 		UserName:       serviceRequest.UserName,
 		UserEmail:      serviceRequest.UserEmail,
 		UserPhone:      serviceRequest.UserPhone,
 		ServiceType:    serviceRequest.ServiceName,
 		ServiceComment: serviceRequest.Message,
-		ServiceImage:   serviceRequest.Image, // Include uploaded image URL
+		ServiceImage:   serviceRequest.Image,
 		Timestamp:      time.Now().Format(time.RFC3339),
 		IsRead:         false,
 		Priority:       "medium",

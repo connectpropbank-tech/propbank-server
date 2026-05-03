@@ -20,6 +20,11 @@ type AdminNotification struct {
 	UserName  string `firestore:"userName,omitempty" json:"userName,omitempty"`
 	UserEmail string `firestore:"userEmail,omitempty" json:"userEmail,omitempty"`
 	UserPhone string `firestore:"userPhone,omitempty" json:"userPhone,omitempty"`
+	// Tenant details (if property is rented)
+	TenantName  string `firestore:"tenantName,omitempty" json:"tenantName,omitempty"`
+	TenantPhone string `firestore:"tenantPhone,omitempty" json:"tenantPhone,omitempty"`
+	TenantEmail string `firestore:"tenantEmail,omitempty" json:"tenantEmail,omitempty"`
+	Buyers      string `firestore:"buyers,omitempty" json:"buyers,omitempty"`
 	// Property details for property enquiry notifications
 	PropertyTitle       string `firestore:"propertyTitle,omitempty" json:"propertyTitle,omitempty"`
 	PropertyAddress     string `firestore:"propertyAddress,omitempty" json:"propertyAddress,omitempty"`
@@ -39,6 +44,7 @@ type AdminNotification struct {
 	ResolvedAt   *time.Time `firestore:"resolvedAt,omitempty" json:"resolvedAt,omitempty"` // Timestamp when marked as resolved
 	Priority     string     `firestore:"priority" json:"priority"`
 	AdminRemarks string     `firestore:"adminRemarks,omitempty" json:"adminRemarks,omitempty"`
+	AdminImage   string     `firestore:"adminImage,omitempty" json:"adminImage,omitempty"`
 	CreatedAt    time.Time  `firestore:"createdAt" json:"createdAt"`
 	UpdatedAt    time.Time  `firestore:"updatedAt" json:"updatedAt"`
 }
@@ -58,6 +64,12 @@ type CreateAdminNotificationRequest struct {
 	UserName  string `json:"userName,omitempty"`
 	UserEmail string `json:"userEmail,omitempty"`
 	UserPhone string `json:"userPhone,omitempty"`
+	// Tenant details (if property is rented)
+	TenantName  string `json:"tenantName,omitempty"`
+	TenantPhone string `json:"tenantPhone,omitempty"`
+	TenantEmail string `json:"tenantEmail,omitempty"`
+	// Buyer details (for property enquiries/offers)
+	Buyers string `json:"buyers,omitempty"` // JSON stringified array of BuyerInfo
 	// Property details for property enquiry notifications
 	PropertyTitle       string `json:"propertyTitle,omitempty"`
 	PropertyAddress     string `json:"propertyAddress,omitempty"`

@@ -52,6 +52,10 @@ func (s *AdminNotificationService) CreateNotification(ctx context.Context, req m
 		UserName:            req.UserName,
 		UserEmail:           req.UserEmail,
 		UserPhone:           req.UserPhone,
+		TenantName:          req.TenantName,
+		TenantPhone:         req.TenantPhone,
+		TenantEmail:         req.TenantEmail,
+		Buyers:              req.Buyers,
 		PropertyTitle:       req.PropertyTitle,
 		PropertyAddress:     req.PropertyAddress,
 		PropertyListingType: req.PropertyListingType,
@@ -272,13 +276,13 @@ func (s *AdminNotificationService) GetNotificationsByPropertyID(ctx context.Cont
 	return notifications, nil
 }
 
-// UpdateNotificationRemarks updates the admin remarks for a notification
-func (s *AdminNotificationService) UpdateNotificationRemarks(ctx context.Context, notificationID string, remarks string) error {
+// UpdateNotificationRemarks updates the admin remarks and optionally an image for a notification
+func (s *AdminNotificationService) UpdateNotificationRemarks(ctx context.Context, notificationID string, remarks string, adminImage string) error {
 	collection := s.client.Collection("admin_notifications")
 
 	now := time.Now()
 	// Update the notification
-	_, err := collection.Doc(notificationID).Update(ctx, []firestore.Update{
+	updates := []firestore.Update{
 		{
 			Path:  "adminRemarks",
 			Value: remarks,
@@ -287,7 +291,17 @@ func (s *AdminNotificationService) UpdateNotificationRemarks(ctx context.Context
 			Path:  "updatedAt",
 			Value: now,
 		},
-	})
+	}
+
+	// Only add adminImage if it's provided (not empty)
+	if adminImage != "" {
+		updates = append(updates, firestore.Update{
+			Path:  "adminImage",
+			Value: adminImage,
+		})
+	}
+
+	_, err := collection.Doc(notificationID).Update(ctx, updates)
 
 	if err != nil {
 		return err

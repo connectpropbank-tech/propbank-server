@@ -206,6 +206,7 @@ type Property struct {
 	OwnerUID   string    `json:"ownerUID" firestore:"ownerUID"`
 	OwnerName  string    `json:"ownerName" firestore:"ownerName"`
 	OwnerEmail string    `json:"ownerEmail" firestore:"ownerEmail"`
+	OwnerPhone string    `json:"ownerPhone" firestore:"ownerPhone"`
 	WantToSell bool      `json:"wantToSell" firestore:"wantToSell"` // Toggle for "Want to Sell?" - can be toggled ON/OFF
 	Status     string    `json:"status" firestore:"status"`         // "active" or "inactive" (default: "active")
 	IsActive   bool      `json:"isActive" firestore:"isActive"`     // Legacy field, kept for backward compatibility
@@ -270,6 +271,7 @@ type PropertyResponse struct {
 	OwnerUID              string             `json:"ownerUID"`
 	OwnerName             string             `json:"ownerName"`
 	OwnerEmail            string             `json:"ownerEmail"`
+	OwnerPhone            string             `json:"ownerPhone"`
 	WantToSell            bool               `json:"wantToSell"` // Toggle for "Want to Sell?" - can be toggled ON/OFF
 	Status                string             `json:"status"`     // "active" or "inactive"
 	IsActive              bool               `json:"isActive"`   // Legacy field

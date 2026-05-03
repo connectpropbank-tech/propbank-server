@@ -946,6 +946,7 @@ func (h *PropertyHandler) convertToPropertyResponse(property models.Property) mo
 		OwnerUID:              property.OwnerUID,
 		OwnerName:             property.OwnerName,
 		OwnerEmail:            property.OwnerEmail,
+		OwnerPhone:            property.OwnerPhone,
 		WantToSell:            property.WantToSell,
 		Status:                property.Status,
 		IsActive:              property.IsActive,
@@ -1007,6 +1008,25 @@ func (h *PropertyHandler) createWantToSellNotification(ctx context.Context, prop
 		}
 	}
 
+	// Get tenant info if available
+	tenantName := ""
+	tenantEmail := ""
+	tenantPhone := ""
+	if len(property.Tenants) > 0 {
+		tenant := property.Tenants[0]
+		tenantName = fmt.Sprintf("%s %s", tenant.FirstName, tenant.LastName)
+		tenantEmail = tenant.Email
+		tenantPhone = tenant.Phone
+	}
+
+	// Get buyers info if available
+	buyersJSON := ""
+	if len(property.Buyers) > 0 {
+		if b, err := json.Marshal(property.Buyers); err == nil {
+			buyersJSON = string(b)
+		}
+	}
+
 	// Create notification request
 	notificationReq := models.CreateAdminNotificationRequest{
 		Type:       "want_to_sell",
@@ -1017,9 +1037,15 @@ func (h *PropertyHandler) createWantToSellNotification(ctx context.Context, prop
 		OwnerName:  property.OwnerName,
 		OwnerPhone: ownerPhone,
 		OwnerEmail: ownerEmail,
-		Timestamp:  time.Now().Format(time.RFC3339),
-		IsRead:     false,
-		Priority:   "high",
+		// Tenant info
+		TenantName:  tenantName,
+		TenantEmail: tenantEmail,
+		TenantPhone: tenantPhone,
+		// Buyers info
+		Buyers:    buyersJSON,
+		Timestamp: time.Now().Format(time.RFC3339),
+		IsRead:    false,
+		Priority:  "high",
 	}
 
 	// Create notification
@@ -1046,6 +1072,25 @@ func (h *PropertyHandler) createWantToSellCancelledNotification(ctx context.Cont
 		}
 	}
 
+	// Get tenant info if available
+	tenantName := ""
+	tenantEmail := ""
+	tenantPhone := ""
+	if len(property.Tenants) > 0 {
+		tenant := property.Tenants[0]
+		tenantName = fmt.Sprintf("%s %s", tenant.FirstName, tenant.LastName)
+		tenantEmail = tenant.Email
+		tenantPhone = tenant.Phone
+	}
+
+	// Get buyers info if available
+	buyersJSON := ""
+	if len(property.Buyers) > 0 {
+		if b, err := json.Marshal(property.Buyers); err == nil {
+			buyersJSON = string(b)
+		}
+	}
+
 	// Create notification request
 	notificationReq := models.CreateAdminNotificationRequest{
 		Type:       "want_to_sell_cancelled",
@@ -1056,9 +1101,15 @@ func (h *PropertyHandler) createWantToSellCancelledNotification(ctx context.Cont
 		OwnerName:  property.OwnerName,
 		OwnerPhone: ownerPhone,
 		OwnerEmail: ownerEmail,
-		Timestamp:  time.Now().Format(time.RFC3339),
-		IsRead:     false,
-		Priority:   "medium",
+		// Tenant info
+		TenantName:  tenantName,
+		TenantEmail: tenantEmail,
+		TenantPhone: tenantPhone,
+		// Buyers info
+		Buyers:    buyersJSON,
+		Timestamp: time.Now().Format(time.RFC3339),
+		IsRead:    false,
+		Priority:  "medium",
 	}
 
 	// Create notification

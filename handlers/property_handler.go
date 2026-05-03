@@ -349,69 +349,7 @@ func (h *PropertyHandler) GetAllProperties(w http.ResponseWriter, r *http.Reques
 	// Convert to response format
 	var propertyResponses []models.PropertyResponse
 	for _, property := range properties {
-		propertyResponses = append(propertyResponses, models.PropertyResponse{
-			ID:                    property.ID,
-			Title:                 property.Title,
-			Description:           property.Description,
-			Price:                 property.Price,
-			Address:               property.Address,
-			City:                  property.City,
-			State:                 property.State,
-			ZipCode:               property.ZipCode,
-			PropertyType:          property.PropertyType,
-			ListingType:           property.ListingType,
-			Configuration:         property.Configuration,
-			UnitNumber:            property.UnitNumber,
-			Floor:                 property.Floor,
-			Location:              property.Location,
-			CarpetArea:            property.CarpetArea,
-			ConstructedArea:       property.ConstructedArea,
-			SquareFeet:            property.SquareFeet,
-			TenantName:            property.TenantName,
-			PersonName:            property.PersonName,
-			MobileNumber:          property.MobileNumber,
-			PrimaryNo:             property.PrimaryNo,
-			UltNo:                 property.UltNo,
-			MonthlyRent:           property.MonthlyRent,
-			SellingPrice:          property.SellingPrice,
-			MonthlyRent1stYear:    property.MonthlyRent1stYear,
-			MonthlyRent2ndYear:    property.MonthlyRent2ndYear,
-			MonthlyRent3rdYear:    property.MonthlyRent3rdYear,
-			MonthlyRent4thYear:    property.MonthlyRent4thYear,
-			RentFromDate1:         property.RentFromDate1,
-			RentToDate1:           property.RentToDate1,
-			RentFromDate2:         property.RentFromDate2,
-			RentToDate2:           property.RentToDate2,
-			PaymentDueDate:        property.PaymentDueDate,
-			EscalationPercentage:  property.EscalationPercentage,
-			EscalationAmount:      property.EscalationAmount,
-			SecurityDeposit:       property.SecurityDeposit,
-			AgreementPeriod:       property.AgreementPeriod,
-			AgreementStartDate:    property.AgreementStartDate,
-			AgreementEndDate:      property.AgreementEndDate,
-			NoticePeriod:          property.NoticePeriod,
-			LockInPeriod:          property.LockInPeriod,
-			UnitCondition:         property.UnitCondition,
-			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
-			ProjectCondition:      property.ProjectCondition,
-			PossessionDate:        property.PossessionDate,
-			RentalStatus:          property.RentalStatus,
-			FurnishedChecklist:    property.FurnishedChecklist,
-			Images:                property.Images,
-			SpecificComments:      property.SpecificComments,
-			Tenants:               property.Tenants,
-			Buyers:                property.Buyers,
-			OwnerUID:              property.OwnerUID,
-			OwnerName:             property.OwnerName,
-			OwnerEmail:            property.OwnerEmail,
-			WantToSell:            property.WantToSell,
-			Status:                property.Status,
-			IsActive:              property.IsActive,
-			CreatedAt:             property.CreatedAt,
-			UpdatedAt:             property.UpdatedAt,
-			Bedrooms:              property.Bedrooms,
-			Bathrooms:             property.Bathrooms,
-		})
+		propertyResponses = append(propertyResponses, h.convertToPropertyResponse(property))
 	}
 
 	response := map[string]interface{}{
@@ -467,7 +405,7 @@ func (h *PropertyHandler) GetProperty(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":  true,
-		"property": property, // Return full property object with all fields
+		"property": h.convertToPropertyResponse(*property),
 	})
 }
 
@@ -501,70 +439,9 @@ func (h *PropertyHandler) GetPropertiesByOwner(w http.ResponseWriter, r *http.Re
 
 	// Convert owned properties to response format with "owner" role
 	for _, property := range ownedProperties {
-		propertyMap[property.ID] = &models.PropertyResponse{
-			ID:                    property.ID,
-			Title:                 property.Title,
-			Description:           property.Description,
-			Price:                 property.Price,
-			Address:               property.Address,
-			City:                  property.City,
-			State:                 property.State,
-			ZipCode:               property.ZipCode,
-			PropertyType:          property.PropertyType,
-			ListingType:           property.ListingType,
-			Configuration:         property.Configuration,
-			UnitNumber:            property.UnitNumber,
-			Floor:                 property.Floor,
-			Location:              property.Location,
-			CarpetArea:            property.CarpetArea,
-			ConstructedArea:       property.ConstructedArea,
-			SquareFeet:            property.SquareFeet,
-			TenantName:            property.TenantName,
-			PersonName:            property.PersonName,
-			MobileNumber:          property.MobileNumber,
-			PrimaryNo:             property.PrimaryNo,
-			UltNo:                 property.UltNo,
-			MonthlyRent:           property.MonthlyRent,
-			SellingPrice:          property.SellingPrice,
-			MonthlyRent1stYear:    property.MonthlyRent1stYear,
-			MonthlyRent2ndYear:    property.MonthlyRent2ndYear,
-			MonthlyRent3rdYear:    property.MonthlyRent3rdYear,
-			MonthlyRent4thYear:    property.MonthlyRent4thYear,
-			RentFromDate1:         property.RentFromDate1,
-			RentToDate1:           property.RentToDate1,
-			RentFromDate2:         property.RentFromDate2,
-			RentToDate2:           property.RentToDate2,
-			PaymentDueDate:        property.PaymentDueDate,
-			EscalationPercentage:  property.EscalationPercentage,
-			EscalationAmount:      property.EscalationAmount,
-			SecurityDeposit:       property.SecurityDeposit,
-			AgreementPeriod:       property.AgreementPeriod,
-			AgreementStartDate:    property.AgreementStartDate,
-			AgreementEndDate:      property.AgreementEndDate,
-			NoticePeriod:          property.NoticePeriod,
-			LockInPeriod:          property.LockInPeriod,
-			UnitCondition:         property.UnitCondition,
-			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
-			ProjectCondition:      property.ProjectCondition,
-			PossessionDate:        property.PossessionDate,
-			RentalStatus:          property.RentalStatus,
-			FurnishedChecklist:    property.FurnishedChecklist,
-			Images:                property.Images,
-			SpecificComments:      property.SpecificComments,
-			Tenants:               property.Tenants,
-			Buyers:                property.Buyers,
-			OwnerUID:              property.OwnerUID,
-			OwnerName:             property.OwnerName,
-			OwnerEmail:            property.OwnerEmail,
-			WantToSell:            property.WantToSell,
-			Status:                property.Status,
-			IsActive:              property.IsActive,
-			CreatedAt:             property.CreatedAt,
-			UpdatedAt:             property.UpdatedAt,
-			Bedrooms:              property.Bedrooms,
-			Bathrooms:             property.Bathrooms,
-			UserRole:              "owner", // Mark as owner
-		}
+		resp := h.convertToPropertyResponse(property)
+		resp.UserRole = "owner"
+		propertyMap[property.ID] = &resp
 	}
 
 	// Convert tenant properties to response format with "tenant" role
@@ -737,70 +614,9 @@ func (h *PropertyHandler) respondWithProperties(w http.ResponseWriter, propertie
 	// Convert to response format
 	var propertyResponses []models.PropertyResponse
 	for _, property := range properties {
-		propertyResponses = append(propertyResponses, models.PropertyResponse{
-			ID:                    property.ID,
-			Title:                 property.Title,
-			Description:           property.Description,
-			Price:                 property.Price,
-			Address:               property.Address,
-			City:                  property.City,
-			State:                 property.State,
-			ZipCode:               property.ZipCode,
-			PropertyType:          property.PropertyType,
-			ListingType:           property.ListingType,
-			Configuration:         property.Configuration,
-			UnitNumber:            property.UnitNumber,
-			Floor:                 property.Floor,
-			Location:              property.Location,
-			CarpetArea:            property.CarpetArea,
-			ConstructedArea:       property.ConstructedArea,
-			SquareFeet:            property.SquareFeet,
-			TenantName:            property.TenantName,
-			PersonName:            property.PersonName,
-			MobileNumber:          property.MobileNumber,
-			PrimaryNo:             property.PrimaryNo,
-			UltNo:                 property.UltNo,
-			MonthlyRent:           property.MonthlyRent,
-			SellingPrice:          property.SellingPrice,
-			MonthlyRent1stYear:    property.MonthlyRent1stYear,
-			MonthlyRent2ndYear:    property.MonthlyRent2ndYear,
-			MonthlyRent3rdYear:    property.MonthlyRent3rdYear,
-			MonthlyRent4thYear:    property.MonthlyRent4thYear,
-			RentFromDate1:         property.RentFromDate1,
-			RentToDate1:           property.RentToDate1,
-			RentFromDate2:         property.RentFromDate2,
-			RentToDate2:           property.RentToDate2,
-			PaymentDueDate:        property.PaymentDueDate,
-			EscalationPercentage:  property.EscalationPercentage,
-			EscalationAmount:      property.EscalationAmount,
-			SecurityDeposit:       property.SecurityDeposit,
-			AgreementPeriod:       property.AgreementPeriod,
-			AgreementStartDate:    property.AgreementStartDate,
-			AgreementEndDate:      property.AgreementEndDate,
-			NoticePeriod:          property.NoticePeriod,
-			LockInPeriod:          property.LockInPeriod,
-			UnitCondition:         property.UnitCondition,
-			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
-			ProjectCondition:      property.ProjectCondition,
-			PossessionDate:        property.PossessionDate,
-			RentalStatus:          property.RentalStatus,
-			FurnishedChecklist:    property.FurnishedChecklist,
-			Images:                property.Images,
-			SpecificComments:      property.SpecificComments,
-			Tenants:               property.Tenants,
-			Buyers:                property.Buyers,
-			OwnerUID:              property.OwnerUID,
-			OwnerName:             property.OwnerName,
-			OwnerEmail:            property.OwnerEmail,
-			WantToSell:            property.WantToSell,
-			Status:                property.Status,
-			IsActive:              property.IsActive,
-			CreatedAt:             property.CreatedAt,
-			UpdatedAt:             property.UpdatedAt,
-			Bedrooms:              property.Bedrooms,
-			Bathrooms:             property.Bathrooms,
-			UserRole:              "tenant",
-		})
+		resp := h.convertToPropertyResponse(property)
+		resp.UserRole = "tenant"
+		propertyResponses = append(propertyResponses, resp)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -832,69 +648,7 @@ func (h *PropertyHandler) GetArchivedPropertiesByOwner(w http.ResponseWriter, r 
 	// Convert to response format
 	var propertyResponses []models.PropertyResponse
 	for _, property := range properties {
-		propertyResponses = append(propertyResponses, models.PropertyResponse{
-			ID:                    property.ID,
-			Title:                 property.Title,
-			Description:           property.Description,
-			Price:                 property.Price,
-			Address:               property.Address,
-			City:                  property.City,
-			State:                 property.State,
-			ZipCode:               property.ZipCode,
-			PropertyType:          property.PropertyType,
-			ListingType:           property.ListingType,
-			Configuration:         property.Configuration,
-			UnitNumber:            property.UnitNumber,
-			Floor:                 property.Floor,
-			Location:              property.Location,
-			CarpetArea:            property.CarpetArea,
-			ConstructedArea:       property.ConstructedArea,
-			SquareFeet:            property.SquareFeet,
-			TenantName:            property.TenantName,
-			PersonName:            property.PersonName,
-			MobileNumber:          property.MobileNumber,
-			PrimaryNo:             property.PrimaryNo,
-			UltNo:                 property.UltNo,
-			MonthlyRent:           property.MonthlyRent,
-			SellingPrice:          property.SellingPrice,
-			MonthlyRent1stYear:    property.MonthlyRent1stYear,
-			MonthlyRent2ndYear:    property.MonthlyRent2ndYear,
-			MonthlyRent3rdYear:    property.MonthlyRent3rdYear,
-			MonthlyRent4thYear:    property.MonthlyRent4thYear,
-			RentFromDate1:         property.RentFromDate1,
-			RentToDate1:           property.RentToDate1,
-			RentFromDate2:         property.RentFromDate2,
-			RentToDate2:           property.RentToDate2,
-			PaymentDueDate:        property.PaymentDueDate,
-			EscalationPercentage:  property.EscalationPercentage,
-			EscalationAmount:      property.EscalationAmount,
-			SecurityDeposit:       property.SecurityDeposit,
-			AgreementPeriod:       property.AgreementPeriod,
-			AgreementStartDate:    property.AgreementStartDate,
-			AgreementEndDate:      property.AgreementEndDate,
-			NoticePeriod:          property.NoticePeriod,
-			LockInPeriod:          property.LockInPeriod,
-			UnitCondition:         property.UnitCondition,
-			MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
-			ProjectCondition:      property.ProjectCondition,
-			PossessionDate:        property.PossessionDate,
-			RentalStatus:          property.RentalStatus,
-			FurnishedChecklist:    property.FurnishedChecklist,
-			Images:                property.Images,
-			SpecificComments:      property.SpecificComments,
-			Tenants:               property.Tenants,
-			Buyers:                property.Buyers,
-			OwnerUID:              property.OwnerUID,
-			OwnerName:             property.OwnerName,
-			OwnerEmail:            property.OwnerEmail,
-			WantToSell:            property.WantToSell,
-			Status:                property.Status,
-			IsActive:              property.IsActive,
-			CreatedAt:             property.CreatedAt,
-			UpdatedAt:             property.UpdatedAt,
-			Bedrooms:              property.Bedrooms,
-			Bathrooms:             property.Bathrooms,
-		})
+		propertyResponses = append(propertyResponses, h.convertToPropertyResponse(property))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1059,30 +813,7 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"message": "Property updated successfully",
-		"property": models.PropertyResponse{
-			ID:           updatedProperty.ID,
-			Title:        updatedProperty.Title,
-			Description:  updatedProperty.Description,
-			Price:        updatedProperty.Price,
-			Address:      updatedProperty.Address,
-			City:         updatedProperty.City,
-			State:        updatedProperty.State,
-			ZipCode:      updatedProperty.ZipCode,
-			PropertyType: updatedProperty.PropertyType,
-			ListingType:  updatedProperty.ListingType,
-			Bedrooms:     updatedProperty.Bedrooms,
-			Bathrooms:    updatedProperty.Bathrooms,
-			SquareFeet:   updatedProperty.SquareFeet,
-			Images:       updatedProperty.Images,
-			Tenants:      updatedProperty.Tenants,
-			Buyers:       updatedProperty.Buyers,
-			OwnerUID:     updatedProperty.OwnerUID,
-			OwnerName:    updatedProperty.OwnerName,
-			OwnerEmail:   updatedProperty.OwnerEmail,
-			IsActive:     updatedProperty.IsActive,
-			CreatedAt:    updatedProperty.CreatedAt,
-			UpdatedAt:    updatedProperty.UpdatedAt,
-		},
+		"property": h.convertToPropertyResponse(*updatedProperty),
 	})
 }
 
@@ -1108,48 +839,7 @@ func (h *PropertyHandler) SearchProperties(w http.ResponseWriter, r *http.Reques
 	// Convert to response format
 	var propertyResponses []models.PropertyResponse
 	for _, property := range properties {
-		// Calculate price based on listing type for display
-		var displayPrice float64
-		if property.ListingType == "rent" && property.MonthlyRent != "" {
-			// Try to parse monthly rent as float
-			if parsedRent, err := parsePrice(property.MonthlyRent); err == nil {
-				displayPrice = parsedRent
-			}
-		} else if property.ListingType == "sell" && property.SellingPrice != "" {
-			// Try to parse selling price as float
-			if parsedPrice, err := parsePrice(property.SellingPrice); err == nil {
-				displayPrice = parsedPrice
-			}
-		}
-
-		propertyResponses = append(propertyResponses, models.PropertyResponse{
-			ID:               property.ID,
-			Title:            property.Title,
-			Description:      property.Description,
-			Price:            displayPrice,
-			Address:          property.Address,
-			City:             property.City,
-			State:            property.State,
-			ZipCode:          property.ZipCode,
-			PropertyType:     property.PropertyType,
-			ListingType:      property.ListingType,
-			ProjectCondition: property.ProjectCondition,
-			PossessionDate:   property.PossessionDate,
-			RentalStatus:     property.RentalStatus,
-			Bedrooms:         property.Bedrooms,
-			Bathrooms:        property.Bathrooms,
-			SquareFeet:       property.SquareFeet,
-			Images:           property.Images,
-			Tenants:          property.Tenants,
-			Buyers:           property.Buyers,
-			OwnerUID:         property.OwnerUID,
-			OwnerName:        property.OwnerName,
-			OwnerEmail:       property.OwnerEmail,
-			Status:           property.Status,
-			IsActive:         property.IsActive,
-			CreatedAt:        property.CreatedAt,
-			UpdatedAt:        property.UpdatedAt,
-		})
+		propertyResponses = append(propertyResponses, h.convertToPropertyResponse(property))
 	}
 
 	response := map[string]interface{}{
@@ -1184,6 +874,86 @@ func parsePrice(priceStr string) (float64, error) {
 	}
 
 	return price, nil
+}
+
+// convertToPropertyResponse converts a Property model to a PropertyResponse
+func (h *PropertyHandler) convertToPropertyResponse(property models.Property) models.PropertyResponse {
+	displayPrice := property.Price
+	if displayPrice == 0 {
+		if property.ListingType == "rent" && property.MonthlyRent != "" {
+			if parsedRent, err := parsePrice(property.MonthlyRent); err == nil {
+				displayPrice = parsedRent
+			}
+		} else if property.ListingType == "sell" && property.SellingPrice != "" {
+			if parsedPrice, err := parsePrice(property.SellingPrice); err == nil {
+				displayPrice = parsedPrice
+			}
+		}
+	}
+
+	return models.PropertyResponse{
+		ID:                    property.ID,
+		Title:                 property.Title,
+		Description:           property.Description,
+		Price:                 displayPrice,
+		Address:               property.Address,
+		City:                  property.City,
+		State:                 property.State,
+		ZipCode:               property.ZipCode,
+		PropertyType:          property.PropertyType,
+		ListingType:           property.ListingType,
+		Configuration:         property.Configuration,
+		UnitNumber:            property.UnitNumber,
+		Floor:                 property.Floor,
+		Location:              property.Location,
+		CarpetArea:            property.CarpetArea,
+		ConstructedArea:       property.ConstructedArea,
+		SquareFeet:            property.SquareFeet,
+		TenantName:            property.TenantName,
+		PersonName:            property.PersonName,
+		MobileNumber:          property.MobileNumber,
+		PrimaryNo:             property.PrimaryNo,
+		UltNo:                 property.UltNo,
+		MonthlyRent:           property.MonthlyRent,
+		SellingPrice:          property.SellingPrice,
+		MonthlyRent1stYear:    property.MonthlyRent1stYear,
+		MonthlyRent2ndYear:    property.MonthlyRent2ndYear,
+		MonthlyRent3rdYear:    property.MonthlyRent3rdYear,
+		MonthlyRent4thYear:    property.MonthlyRent4thYear,
+		RentFromDate1:         property.RentFromDate1,
+		RentToDate1:           property.RentToDate1,
+		RentFromDate2:         property.RentFromDate2,
+		RentToDate2:           property.RentToDate2,
+		PaymentDueDate:        property.PaymentDueDate,
+		EscalationPercentage:  property.EscalationPercentage,
+		EscalationAmount:      property.EscalationAmount,
+		SecurityDeposit:       property.SecurityDeposit,
+		AgreementPeriod:       property.AgreementPeriod,
+		AgreementStartDate:    property.AgreementStartDate,
+		AgreementEndDate:      property.AgreementEndDate,
+		NoticePeriod:          property.NoticePeriod,
+		LockInPeriod:          property.LockInPeriod,
+		UnitCondition:         property.UnitCondition,
+		MaintenanceToBePaidBy: property.MaintenanceToBePaidBy,
+		ProjectCondition:      property.ProjectCondition,
+		PossessionDate:        property.PossessionDate,
+		RentalStatus:          property.RentalStatus,
+		FurnishedChecklist:    property.FurnishedChecklist,
+		Images:                property.Images,
+		SpecificComments:      property.SpecificComments,
+		Tenants:               property.Tenants,
+		Buyers:                property.Buyers,
+		OwnerUID:              property.OwnerUID,
+		OwnerName:             property.OwnerName,
+		OwnerEmail:            property.OwnerEmail,
+		WantToSell:            property.WantToSell,
+		Status:                property.Status,
+		IsActive:              property.IsActive,
+		CreatedAt:             property.CreatedAt,
+		UpdatedAt:             property.UpdatedAt,
+		Bedrooms:              property.Bedrooms,
+		Bathrooms:             property.Bathrooms,
+	}
 }
 
 // updateUsersWithRentedProperty updates users' records with rented property information when tenants are added

@@ -54,9 +54,9 @@ func main() {
 	siteSettingsHandler := handlers.NewSiteSettingsHandler(config.GetFirestoreClient())
 	agreementHandler := handlers.NewAgreementHandler(config.GetFirestoreClient())
 	documentHandler := handlers.NewDocumentHandler(config.GetFirestoreClient(), uploadHandler.GetR2Service())
-	if err != nil {
-	} else {
-	}
+	reviewHandler := handlers.NewReviewHandler(config.GetFirestoreClient())
+	inspectionReportHandler := handlers.NewInspectionReportHandler(config.GetFirestoreClient())
+	tenantHandler := handlers.NewTenantHandler(config.GetFirestoreClient())
 
 	// Initialize email service and reminder scheduler
 	visitService := services.NewVisitService(config.GetFirestoreClient())
@@ -241,6 +241,111 @@ func main() {
 		}
 	})
 
+	// Review routes
+	http.HandleFunc("/reviews", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "POST" {
+			reviewHandler.CreateReview(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	http.HandleFunc("/reviews/", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+
+		path := r.URL.Path
+		if strings.HasPrefix(path, "/reviews/property/") {
+			if r.Method == "GET" {
+				reviewHandler.GetReviewsByProperty(w, r)
+				return
+			}
+		}
+
+		if r.Method == "GET" {
+			reviewHandler.GetReviewByID(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Inspection Report routes
+	http.HandleFunc("/inspection-reports", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "POST" {
+			inspectionReportHandler.CreateInspectionReport(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	http.HandleFunc("/inspection-reports/", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+
+		path := r.URL.Path
+		if strings.HasPrefix(path, "/inspection-reports/property/") {
+			if r.Method == "GET" {
+				inspectionReportHandler.GetInspectionReportsByProperty(w, r)
+				return
+			}
+		} else if strings.HasPrefix(path, "/inspection-reports/user/") {
+			if r.Method == "GET" {
+				inspectionReportHandler.GetInspectionReportsByUser(w, r)
+				return
+			}
+		}
+
+		if r.Method == "GET" {
+			inspectionReportHandler.GetInspectionReportByID(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Tenant routes
+	http.HandleFunc("/tenants", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+		if r.Method == "POST" {
+			tenantHandler.CreateTenant(w, r)
+		} else if r.Method == "GET" {
+			tenantHandler.GetTenantsByProperty(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	http.HandleFunc("/tenants/", func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			return
+		}
+
+		if r.Method == "GET" {
+			tenantHandler.GetTenant(w, r)
+		} else if r.Method == "PUT" {
+			tenantHandler.UpdateTenant(w, r)
+		} else if r.Method == "DELETE" {
+			tenantHandler.DeleteTenant(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// User By ID Routes (GET, PUT, PATCH)
 	http.HandleFunc("/users/", func(w http.ResponseWriter, r *http.Request) {
 		enableCORS(w, r)
@@ -248,11 +353,12 @@ func main() {
 			return
 		}
 
-		if r.Method == "GET" {
+		switch r.Method {
+case "GET":
 			userHandler.GetUser(w, r)
-		} else if r.Method == "PUT" || r.Method == "PATCH" {
+		case "PUT", "PATCH":
 			userHandler.UpdateUser(w, r)
-		} else {
+		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})

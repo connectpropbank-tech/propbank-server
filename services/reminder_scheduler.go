@@ -255,33 +255,48 @@ func (rs *ReminderScheduler) checkAndSendNoticePeriodReminders() {
 				continue
 			}
 
-			// Parse Notice Period (e.g., "1 Month", "2 Months")
-			var invalidNotice bool
+			// Parse Notice Period (e.g., "1 Month", "30 Days", "Manual")
 			months := 0
-			if strings.Contains(tenant.NoticePeriod, "1") {
-				months = 1
-			} else if strings.Contains(tenant.NoticePeriod, "2") {
-				months = 2
-			} else if strings.Contains(tenant.NoticePeriod, "3") {
-				months = 3
-			} else if strings.Contains(tenant.NoticePeriod, "6") {
-				months = 6
-			} else {
-				invalidNotice = true
+			days := 0
+			
+			// Find all numbers in the string
+			numStr := ""
+			for _, r := range tenant.NoticePeriod {
+				if r >= '0' && r <= '9' {
+					numStr += string(r)
+				} else if len(numStr) > 0 {
+					break
+				}
+			}
+			
+			if numStr != "" {
+				val, _ := strconv.Atoi(numStr)
+				lowerNotice := strings.ToLower(tenant.NoticePeriod)
+				if strings.Contains(lowerNotice, "day") {
+					days = val
+				} else {
+					// Default to months if not specified or contains "month"
+					months = val
+				}
 			}
 
-			if invalidNotice || months == 0 {
+			if months == 0 && days == 0 {
 				continue
 			}
 
 			// Calculate Notice Start Date
-			noticeStartDate := leaseEnd.AddDate(0, -months, 0)
+			var noticeStartDate time.Time
+			if months > 0 {
+				noticeStartDate = leaseEnd.AddDate(0, -months, 0)
+			} else {
+				noticeStartDate = leaseEnd.AddDate(0, 0, -days)
+			}
 
-			// Check if today matches the notice start date
-			if isSameDay(today, noticeStartDate) {
+			// Check if today matches or has passed the notice start date
+			if (today.After(noticeStartDate) || isSameDay(today, noticeStartDate)) && today.Before(leaseEnd) {
 				// Check if already notified
 				lastSent := tenant.LastNoticePeriodReminderSentAt
-				if lastSent.IsZero() || !isSameDay(lastSent, today) {
+				if lastSent.IsZero() {
 
 					// Prepare Email Data
 					emailData := NoticePeriodEmailData{

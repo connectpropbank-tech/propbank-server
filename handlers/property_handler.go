@@ -234,6 +234,27 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 
 	// Update tenant users with the rented property ID if they were linked
 	if len(property.Tenants) > 0 {
+		// Convert Tenants to interface{} slice for sendTenantAddedEmails
+		var tenantsRaw []interface{}
+		for _, t := range property.Tenants {
+			// Convert TenantInfo to map[string]interface{}
+			tData := map[string]interface{}{
+				"firstName":      t.FirstName,
+				"lastName":       t.LastName,
+				"email":          t.Email,
+				"phone":          t.Phone,
+				"monthlyRent":    t.MonthlyRent,
+				"leaseStartDate": t.LeaseStartDate,
+				"leaseEndDate":   t.LeaseEndDate,
+				"isActive":       t.IsActive,
+			}
+			tenantsRaw = append(tenantsRaw, tData)
+		}
+
+		// Send email notifications
+		// Since this is a new property, all tenants are considered "new"
+		h.sendTenantAddedEmails(r.Context(), createdProperty, []models.TenantInfo{}, tenantsRaw)
+
 		for _, tenant := range property.Tenants {
 			if tenant.UserUID != "" {
 				// Update user with rented property information

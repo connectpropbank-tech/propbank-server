@@ -15,14 +15,16 @@ import (
 )
 
 type TenantHandler struct {
-	client      *firestore.Client
-	userService *services.UserService
+	client       *firestore.Client
+	userService  *services.UserService
+	emailService *services.EmailService
 }
 
-func NewTenantHandler(client *firestore.Client) *TenantHandler {
+func NewTenantHandler(client *firestore.Client, emailService *services.EmailService) *TenantHandler {
 	return &TenantHandler{
-		client:      client,
-		userService: services.NewUserService(client),
+		client:       client,
+		userService:  services.NewUserService(client),
+		emailService: emailService,
 	}
 }
 
@@ -164,6 +166,29 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		}
 
 		newTenantInfos = append(newTenantInfos, tenantInfo)
+
+		// Send Welcome Email to Tenant and Notification to Owner
+		emailData := services.TenantAddedEmailData{
+			TenantName:      tenant.FirstName + " " + tenant.LastName,
+			TenantEmail:     tenant.Email,
+			TenantPhone:     tenant.Phone,
+			OwnerName:       property.OwnerName,
+			OwnerEmail:      property.OwnerEmail,
+			OwnerPhone:      property.OwnerPhone,
+			PropertyTitle:   property.Title,
+			PropertyAddress: property.Address,
+			PropertyType:    property.PropertyType,
+			MonthlyRent:     tenant.MonthlyRent,
+			AgreementStart:  tenant.LeaseStartDate,
+			AgreementEnd:    tenant.LeaseEndDate,
+		}
+
+		// Send notification in background
+		go func(data services.TenantAddedEmailData) {
+			if err := h.emailService.SendTenantAddedNotification(data); err != nil {
+				fmt.Printf("[TenantHandler] Failed to send tenant welcome notification: %v\n", err)
+			}
+		}(emailData)
 
 		// If tenant has a userUID (platform user), update user with property information
 		if tenant.UserUID != "" {

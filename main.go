@@ -56,7 +56,7 @@ func main() {
 	documentHandler := handlers.NewDocumentHandler(config.GetFirestoreClient(), uploadHandler.GetR2Service())
 	reviewHandler := handlers.NewReviewHandler(config.GetFirestoreClient())
 	inspectionReportHandler := handlers.NewInspectionReportHandler(config.GetFirestoreClient())
-	tenantHandler := handlers.NewTenantHandler(config.GetFirestoreClient())
+	tenantHandler := handlers.NewTenantHandler(config.GetFirestoreClient(), emailService)
 
 	// Initialize email service and reminder scheduler
 	visitService := services.NewVisitService(config.GetFirestoreClient())

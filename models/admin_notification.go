@@ -4,6 +4,12 @@ import (
 	"time"
 )
 
+// ArchiveHistoryEntry tracks when a notification was archived or unarchived
+type ArchiveHistoryEntry struct {
+	Action    string    `firestore:"action" json:"action"`       // "archived" or "unarchived"
+	Timestamp time.Time `firestore:"timestamp" json:"timestamp"` // When the action happened
+}
+
 // AdminNotification represents an admin notification in the database
 type AdminNotification struct {
 	ID         string `firestore:"id" json:"id"`
@@ -39,14 +45,15 @@ type AdminNotification struct {
 	RequestVisit bool       `firestore:"requestVisit,omitempty" json:"requestVisit,omitempty"`
 	VisitDate    string     `firestore:"visitDate,omitempty" json:"visitDate,omitempty"`
 	VisitTime    string     `firestore:"visitTime,omitempty" json:"visitTime,omitempty"`
-	Timestamp    time.Time  `firestore:"timestamp" json:"timestamp"`
-	IsRead       bool       `firestore:"isRead" json:"isRead"`
-	ResolvedAt   *time.Time `firestore:"resolvedAt,omitempty" json:"resolvedAt,omitempty"` // Timestamp when marked as resolved
-	Priority     string     `firestore:"priority" json:"priority"`
-	AdminRemarks string     `firestore:"adminRemarks,omitempty" json:"adminRemarks,omitempty"`
-	AdminImage   string     `firestore:"adminImage,omitempty" json:"adminImage,omitempty"`
-	CreatedAt    time.Time  `firestore:"createdAt" json:"createdAt"`
-	UpdatedAt    time.Time  `firestore:"updatedAt" json:"updatedAt"`
+	Timestamp    time.Time             `firestore:"timestamp" json:"timestamp"`
+	IsRead       bool                  `firestore:"isRead" json:"isRead"`
+	ResolvedAt   *time.Time            `firestore:"resolvedAt,omitempty" json:"resolvedAt,omitempty"`
+	Priority     string                `firestore:"priority" json:"priority"`
+	AdminRemarks string                `firestore:"adminRemarks,omitempty" json:"adminRemarks,omitempty"`
+	AdminImage   string                `firestore:"adminImage,omitempty" json:"adminImage,omitempty"`
+	ArchiveHistory []ArchiveHistoryEntry `firestore:"archiveHistory,omitempty" json:"archiveHistory,omitempty"`
+	CreatedAt    time.Time             `firestore:"createdAt" json:"createdAt"`
+	UpdatedAt    time.Time             `firestore:"updatedAt" json:"updatedAt"`
 }
 
 // CreateAdminNotificationRequest represents the request body for creating an admin notification

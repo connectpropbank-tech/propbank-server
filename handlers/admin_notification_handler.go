@@ -201,16 +201,35 @@ func (h *AdminNotificationHandler) MarkNotificationAsRead(w http.ResponseWriter,
 		return
 	}
 
-	err := h.service.MarkAsRead(ctx, notificationID)
+	// Parse optional body to determine action: "archive" or "unarchive"
+	// Default to "archive" for backward compatibility
+	archive := true
+	if r.ContentLength > 0 {
+		var body struct {
+			Action string `json:"action"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+			if body.Action == "unarchive" {
+				archive = false
+			}
+		}
+	}
+
+	err := h.service.ToggleArchiveStatus(ctx, notificationID, archive)
 	if err != nil {
-		http.Error(w, "Failed to mark notification as read", http.StatusInternalServerError)
+		http.Error(w, "Failed to update notification status", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	action := "archived"
+	if !archive {
+		action = "unarchived"
+	}
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Notification marked as read",
+		"message": "Notification " + action,
 		"id":      notificationID,
+		"action":  action,
 	})
 }
 

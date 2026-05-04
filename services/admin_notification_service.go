@@ -222,6 +222,38 @@ func (s *AdminNotificationService) MarkAsRead(ctx context.Context, notificationI
 	return nil
 }
 
+// ToggleArchiveStatus archives or unarchives a notification and appends to archiveHistory
+func (s *AdminNotificationService) ToggleArchiveStatus(ctx context.Context, notificationID string, archive bool) error {
+	collection := s.client.Collection("admin_notifications")
+
+	now := time.Now()
+
+	action := "unarchived"
+	isRead := false
+	if archive {
+		action = "archived"
+		isRead = true
+	}
+
+	historyEntry := models.ArchiveHistoryEntry{
+		Action:    action,
+		Timestamp: now,
+	}
+
+	updates := []firestore.Update{
+		{Path: "isRead", Value: isRead},
+		{Path: "updatedAt", Value: now},
+		{Path: "archiveHistory", Value: firestore.ArrayUnion(historyEntry)},
+	}
+
+	if archive {
+		updates = append(updates, firestore.Update{Path: "resolvedAt", Value: now})
+	}
+
+	_, err := collection.Doc(notificationID).Update(ctx, updates)
+	return err
+}
+
 // DeleteNotification deletes a notification
 func (s *AdminNotificationService) DeleteNotification(ctx context.Context, notificationID string) error {
 	collection := s.client.Collection("admin_notifications")

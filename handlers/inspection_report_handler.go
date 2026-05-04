@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -114,7 +115,7 @@ func (h *InspectionReportHandler) CreateInspectionReport(w http.ResponseWriter, 
 		PropertyID:          req.PropertyID,
 		OwnerID:             property.OwnerUID,
 		OwnerName:           property.OwnerName,
-		OwnerPhone:          property.PrimaryNo,
+		OwnerPhone:          property.OwnerPhone,
 		OwnerEmail:          property.OwnerEmail,
 		UserID:              userID,
 		UserName:            user.Name,

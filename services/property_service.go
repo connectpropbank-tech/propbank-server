@@ -120,7 +120,7 @@ func (s *PropertyService) GetPropertyByID(ctx context.Context, id string) (*mode
 	return &property, nil
 }
 
-func (s *PropertyService) GetAllProperties(ctx context.Context) ([]models.Property, error) {
+func (s *PropertyService) GetAllProperties(ctx context.Context, includeUnavailable bool) ([]models.Property, error) {
 	var properties []models.Property
 
 	iter := s.client.Collection("properties").Where("isActive", "==", true).Documents(ctx)
@@ -149,6 +149,24 @@ func (s *PropertyService) GetAllProperties(ctx context.Context) ([]models.Proper
 				property.Status = "active"
 			} else {
 				property.Status = "inactive"
+			}
+		}
+
+		// FILTER: Exclude rented and sold properties from the general public list unless requested otherwise
+		if !includeUnavailable {
+			if property.Status == "inactive" || !property.IsActive {
+				continue
+			}
+			if property.ListingType == "rent" && property.RentalStatus == "rented" {
+				continue
+			}
+			// If there's an explicit isSold or isRented flag (dynamic fields from Firestore)
+			data := doc.Data()
+			if isSold, ok := data["isSold"].(bool); ok && isSold {
+				continue
+			}
+			if isRented, ok := data["isRented"].(bool); ok && isRented {
+				continue
 			}
 		}
 
@@ -335,7 +353,7 @@ func (s *PropertyService) GetArchivedPropertiesByOwner(ctx context.Context, owne
 	return properties, nil
 }
 
-func (s *PropertyService) GetPropertiesByListingType(ctx context.Context, listingType string) ([]models.Property, error) {
+func (s *PropertyService) GetPropertiesByListingType(ctx context.Context, listingType string, includeUnavailable bool) ([]models.Property, error) {
 	var properties []models.Property
 
 	iter := s.client.Collection("properties").Where("listingType", "==", listingType).Where("isActive", "==", true).Documents(ctx)
@@ -364,6 +382,23 @@ func (s *PropertyService) GetPropertiesByListingType(ctx context.Context, listin
 				property.Status = "active"
 			} else {
 				property.Status = "inactive"
+			}
+		}
+
+		// FILTER: Exclude rented and sold properties unless requested otherwise
+		if !includeUnavailable {
+			if property.Status == "inactive" || !property.IsActive {
+				continue
+			}
+			if property.ListingType == "rent" && property.RentalStatus == "rented" {
+				continue
+			}
+			data := doc.Data()
+			if isSold, ok := data["isSold"].(bool); ok && isSold {
+				continue
+			}
+			if isRented, ok := data["isRented"].(bool); ok && isRented {
+				continue
 			}
 		}
 
@@ -455,7 +490,7 @@ func (s *PropertyService) DeleteProperty(ctx context.Context, id string, ownerUI
 }
 
 // SearchProperties searches properties based on query string, listing type, project condition, and filters
-func (s *PropertyService) SearchProperties(ctx context.Context, query string, listingType string, projectCondition string) ([]models.Property, error) {
+func (s *PropertyService) SearchProperties(ctx context.Context, query string, listingType string, projectCondition string, includeUnavailable bool) ([]models.Property, error) {
 	var properties []models.Property
 
 	// Start with base query for active properties
@@ -491,6 +526,24 @@ func (s *PropertyService) SearchProperties(ctx context.Context, query string, li
 			if err := doc.DataTo(&property); err != nil {
 				continue // Skip invalid documents
 			}
+
+			// FILTER: Exclude rented and sold properties unless requested otherwise
+			if !includeUnavailable {
+				if property.Status == "inactive" || !property.IsActive {
+					continue
+				}
+				if property.ListingType == "rent" && property.RentalStatus == "rented" {
+					continue
+				}
+				data := doc.Data()
+				if isSold, ok := data["isSold"].(bool); ok && isSold {
+					continue
+				}
+				if isRented, ok := data["isRented"].(bool); ok && isRented {
+					continue
+				}
+			}
+
 			properties = append(properties, property)
 		}
 		return properties, nil
@@ -550,6 +603,23 @@ func (s *PropertyService) SearchProperties(ctx context.Context, query string, li
 		}
 
 		if matches {
+			// FILTER: Exclude rented and sold properties from results unless requested otherwise
+			if !includeUnavailable {
+				if property.Status == "inactive" || !property.IsActive {
+					continue
+				}
+				if property.ListingType == "rent" && property.RentalStatus == "rented" {
+					continue
+				}
+				data := doc.Data()
+				if isSold, ok := data["isSold"].(bool); ok && isSold {
+					continue
+				}
+				if isRented, ok := data["isRented"].(bool); ok && isRented {
+					continue
+				}
+			}
+
 			properties = append(properties, property)
 		}
 	}

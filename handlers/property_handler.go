@@ -25,7 +25,7 @@ type PropertyHandler struct {
 	emailService             *services.EmailService
 }
 
-func NewPropertyHandler(client *firestore.Client) *PropertyHandler {
+func NewPropertyHandler(client *firestore.Client, emailService *services.EmailService) *PropertyHandler {
 	// Initialize image service with Firebase Storage
 	storageClient := config.GetStorageClient()
 	bucketName := config.GetStorageBucket()
@@ -36,7 +36,7 @@ func NewPropertyHandler(client *firestore.Client) *PropertyHandler {
 		imageService:             services.NewImageService(storageClient, bucketName),
 		adminNotificationService: services.NewAdminNotificationService(client),
 		siteSettingsService:      services.NewSiteSettingsService(client),
-		emailService:             services.NewEmailService(),
+		emailService:             emailService,
 	}
 }
 
@@ -352,14 +352,15 @@ func (h *PropertyHandler) GetAllProperties(w http.ResponseWriter, r *http.Reques
 
 	// Check if filtering by listing type
 	listingType := r.URL.Query().Get("listingType")
+	includeUnavailable := r.URL.Query().Get("all") == "true"
 
 	var properties []models.Property
 	var err error
 
 	if listingType != "" {
-		properties, err = h.propertyService.GetPropertiesByListingType(r.Context(), listingType)
+		properties, err = h.propertyService.GetPropertiesByListingType(r.Context(), listingType, includeUnavailable)
 	} else {
-		properties, err = h.propertyService.GetAllProperties(r.Context())
+		properties, err = h.propertyService.GetAllProperties(r.Context(), includeUnavailable)
 	}
 
 	if err != nil {
@@ -849,9 +850,10 @@ func (h *PropertyHandler) SearchProperties(w http.ResponseWriter, r *http.Reques
 	query := r.URL.Query().Get("q")
 	listingType := r.URL.Query().Get("listingType")
 	projectCondition := r.URL.Query().Get("projectCondition")
+	includeUnavailable := r.URL.Query().Get("all") == "true"
 
 	// Search properties
-	properties, err := h.propertyService.SearchProperties(r.Context(), query, listingType, projectCondition)
+	properties, err := h.propertyService.SearchProperties(r.Context(), query, listingType, projectCondition, includeUnavailable)
 	if err != nil {
 		http.Error(w, "Failed to search properties", http.StatusInternalServerError)
 		return
@@ -1162,7 +1164,7 @@ func (h *PropertyHandler) sendTenantAddedEmails(ctx context.Context, property *m
 	existingTenantEmails := make(map[string]bool)
 	for _, tenant := range existingTenants {
 		if tenant.Email != "" {
-			existingTenantEmails[tenant.Email] = true
+			existingTenantEmails[strings.ToLower(strings.TrimSpace(tenant.Email))] = true
 		}
 	}
 
@@ -1170,26 +1172,37 @@ func (h *PropertyHandler) sendTenantAddedEmails(ctx context.Context, property *m
 	for _, tenantInterface := range newTenantsRaw {
 		tenantMap, ok := tenantInterface.(map[string]interface{})
 		if !ok {
+			fmt.Printf("[PropertyHandler] WARN: tenant entry is not a map\n")
 			continue
 		}
 
 		tenantEmail, _ := tenantMap["email"].(string)
+		tenantEmailClean := strings.ToLower(strings.TrimSpace(tenantEmail))
 		tenantFirstName, _ := tenantMap["firstName"].(string)
 		tenantLastName, _ := tenantMap["lastName"].(string)
 		tenantPhone, _ := tenantMap["phone"].(string)
-		isActive, _ := tenantMap["isActive"].(bool)
+		isActive := false
+		if val, ok := tenantMap["isActive"].(bool); ok {
+			isActive = val
+		} else if val, ok := tenantMap["isActive"].(string); ok {
+			isActive = (val == "true")
+		}
 
 		// Extract lease dates and rent from tenant map if present
 		leaseStart, _ := tenantMap["leaseStartDate"].(string)
 		leaseEnd, _ := tenantMap["leaseEndDate"].(string)
 		tenantRent, _ := tenantMap["monthlyRent"].(string)
 
+		fmt.Printf("[PropertyHandler] DEBUG: Checking tenant %s (%s), isActive=%v\n", tenantEmail, tenantFirstName, isActive)
+
 		// Skip if tenant email already existed (not a new tenant) or if inactive
-		if tenantEmail != "" && existingTenantEmails[tenantEmail] {
+		if tenantEmailClean != "" && existingTenantEmails[tenantEmailClean] {
+			fmt.Printf("[PropertyHandler] SKIP: Tenant %s already exists in property\n", tenantEmail)
 			continue
 		}
 
 		if !isActive {
+			fmt.Printf("[PropertyHandler] SKIP: Tenant %s is not active\n", tenantEmail)
 			continue
 		}
 
@@ -1211,6 +1224,8 @@ func (h *PropertyHandler) sendTenantAddedEmails(ctx context.Context, property *m
 		if monthlyRent == "" {
 			monthlyRent = property.MonthlyRent
 		}
+
+		fmt.Printf("[PropertyHandler] TRIGGER: Sending welcome email to %s for property %s\n", tenantEmail, property.Title)
 
 		// Send email notification
 		go func(tName, tEmail, tPhone, aStart, aEnd, mRent string) {

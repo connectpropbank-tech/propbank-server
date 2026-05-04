@@ -115,7 +115,7 @@ func (rs *ReminderScheduler) checkAndSendReminders() {
 // checkAndSendRentReminders checks for active tenants who have rent due today
 func (rs *ReminderScheduler) checkAndSendRentReminders() {
 	ctx := context.Background()
-	properties, err := rs.propertyService.GetAllProperties(ctx)
+	properties, err := rs.propertyService.GetAllProperties(ctx, true)
 	if err != nil {
 		return
 	}
@@ -223,7 +223,7 @@ func (rs *ReminderScheduler) checkAndSendRentReminders() {
 // checkAndSendNoticePeriodReminders checks if notice period should start today
 func (rs *ReminderScheduler) checkAndSendNoticePeriodReminders() {
 	ctx := context.Background()
-	properties, err := rs.propertyService.GetAllProperties(ctx)
+	properties, err := rs.propertyService.GetAllProperties(ctx, true)
 	if err != nil {
 		fmt.Printf("Error fetching properties for notice period check: %v\n", err)
 		return
@@ -247,8 +247,8 @@ func (rs *ReminderScheduler) checkAndSendNoticePeriodReminders() {
 				continue
 			}
 
-			// Parse Lease End Date
-			leaseEnd, err := time.Parse("2006-01-02", tenant.LeaseEndDate)
+			// Parse Lease End Date using resilient parser
+			leaseEnd, err := parseLeaseDate(tenant.LeaseEndDate)
 			if err != nil {
 				// Try alternate format if needed, or log error
 				// Assuming standard YYYY-MM-DD from HTML date input
@@ -366,8 +366,21 @@ func getOrdinal(n int) string {
 	return fmt.Sprintf("%d%s", n, suffix)
 }
 
+// ParseLeaseDate attempts to parse a date string using multiple common formats
+func parseLeaseDate(dateStr string) (time.Time, error) {
+	formats := []string{"2006-01-02", "02/01/2006", "02-01-2006", "2006/01/02"}
+	for _, f := range formats {
+		if t, err := time.Parse(f, dateStr); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("could not parse date: %s", dateStr)
+}
+
 // ForceCheck forces an immediate check for reminders (useful for testing)
 func (rs *ReminderScheduler) ForceCheck() {
+	fmt.Println("[ReminderScheduler] Force triggering all reminder checks...")
 	rs.checkAndSendReminders()
 	rs.checkAndSendRentReminders()
+	rs.checkAndSendNoticePeriodReminders()
 }

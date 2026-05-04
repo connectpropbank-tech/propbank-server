@@ -43,9 +43,12 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		fmt.Printf("[TenantHandler] ERROR decoding JSON: %v\n", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
+
+	fmt.Printf("[TenantHandler] CreateTenant reached for PropertyID: %s, OwnerUID: %s, NumTenants: %d\n", requestData.PropertyID, requestData.OwnerUID, len(requestData.Tenants))
 
 	// Validate required fields
 	if requestData.PropertyID == "" {
@@ -183,10 +186,17 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 			AgreementEnd:    tenant.LeaseEndDate,
 		}
 
+		fmt.Printf("[TenantHandler] PREPARING welcome email for tenant: %s (%s)\n", emailData.TenantName, emailData.TenantEmail)
+		fmt.Printf("[TenantHandler] Owner info for email: Name=%s, Email=%s, Phone=%s\n", emailData.OwnerName, emailData.OwnerEmail, emailData.OwnerPhone)
+		fmt.Printf("[TenantHandler] Property info for email: Title=%s, Address=%s\n", emailData.PropertyTitle, emailData.PropertyAddress)
+
 		// Send notification in background
 		go func(data services.TenantAddedEmailData) {
+			fmt.Printf("[TenantHandler] Background goroutine started for %s\n", data.TenantEmail)
 			if err := h.emailService.SendTenantAddedNotification(data); err != nil {
-				fmt.Printf("[TenantHandler] Failed to send tenant welcome notification: %v\n", err)
+				fmt.Printf("[TenantHandler] ERROR: Failed to send tenant welcome notification to %s: %v\n", data.TenantEmail, err)
+			} else {
+				fmt.Printf("[TenantHandler] SUCCESS: Tenant welcome notification sent to %s\n", data.TenantEmail)
 			}
 		}(emailData)
 
@@ -205,6 +215,8 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 
 	_, err = propertyRef.Update(ctx, []firestore.Update{
 		{Path: "tenants", Value: allTenants},
+		{Path: "rentalStatus", Value: "rented"},
+		{Path: "listingType", Value: "rent"},
 		{Path: "updatedAt", Value: time.Now()},
 	})
 	if err != nil {

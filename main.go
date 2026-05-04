@@ -41,14 +41,15 @@ func main() {
 		log.Fatalf("Failed to initialize upload handler: %v", err)
 	}
 
+	// Initialize services
+	emailService := services.NewEmailService()
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(config.GetFirestoreClient())
 	authHandler := handlers.NewAuthHandler(config.GetFirestoreClient())
-	propertyHandler := handlers.NewPropertyHandler(config.GetFirestoreClient())
+	propertyHandler := handlers.NewPropertyHandler(config.GetFirestoreClient(), emailService)
 	visitHandler := handlers.NewVisitHandler(config.GetFirestoreClient())
 	serviceHandler := handlers.NewServiceHandler(config.GetFirestoreClient(), uploadHandler.GetR2Service())
-	// Initialize email service and reminder scheduler
-	emailService := services.NewEmailService()
 
 	adminNotificationHandler := handlers.NewAdminNotificationHandler(config.GetFirestoreClient(), emailService)
 	siteSettingsHandler := handlers.NewSiteSettingsHandler(config.GetFirestoreClient())

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"shoprop-backend/models"
+	"strings"
 	"time"
 
 	"github.com/resend/resend-go/v2"
@@ -25,7 +26,7 @@ func NewEmailService() *EmailService {
 
 	return &EmailService{
 		resendClient: client,
-		FromEmail:    getEnvOrDefault("FROM_EMAIL", "connectpropbank@gmail.com"),
+		FromEmail:    getEnvOrDefault("FROM_EMAIL", "connect@propbank.shop"),
 	}
 }
 
@@ -370,11 +371,16 @@ func (es *EmailService) SendGeneralInquiryNotification(adminEmail string, req mo
 
 // sendEmail sends an email using Resend API
 func (es *EmailService) sendEmail(to, subject, body string) error {
+	fmt.Printf("[EmailService] Attempting to send email to %s, Subject: %s\n", to, subject)
+
 	// If API key is not set, skip sending (useful for dev/test)
 	if os.Getenv("RESEND_API_KEY") == "" {
 		fmt.Printf("[EmailService] RESEND_API_KEY not set, skipping email to %s\n", to)
 		return nil
 	}
+
+	// Ensure all hardcoded instances of the legacy email are replaced with the correct one
+	body = strings.ReplaceAll(body, "connectpropbank@gmail.com", es.FromEmail)
 
 	fmt.Printf("[EmailService] Sending email to %s using sender %s\n", to, es.FromEmail)
 
@@ -450,6 +456,7 @@ type TenantAddedEmailData struct {
 
 // SendTenantAddedNotification sends email to both owner and tenant when tenant is added
 func (es *EmailService) SendTenantAddedNotification(data TenantAddedEmailData) error {
+	fmt.Printf("[EmailService] Starting SendTenantAddedNotification for Tenant: %s (%s) and Owner: %s (%s)\n", data.TenantName, data.TenantEmail, data.OwnerName, data.OwnerEmail)
 	var errs []error
 
 	// Send email to Tenant

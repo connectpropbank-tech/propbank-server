@@ -1,16 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"shoprop-backend/config"
 	"shoprop-backend/handlers"
+	"shoprop-backend/models"
 	"shoprop-backend/services"
 	"strings"
 
+	"cloud.google.com/go/firestore"
 	"github.com/joho/godotenv"
+	"google.golang.org/api/iterator"
 )
 
 // CORS middleware function
@@ -34,6 +38,9 @@ func main() {
 
 	// Initialize Firebase
 	config.InitFirebase()
+
+	// Run startup migrations to ensure data consistency
+	go runStartupMigrations(config.GetFirestoreClient())
 
 	// Initialize upload handler (Cloudflare R2)
 	uploadHandler, err := handlers.NewUploadHandler()
@@ -647,4 +654,68 @@ case "GET":
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("❌ Could not start server: %s\n", err.Error())
 	}
+}
+
+// runStartupMigrations updates existing properties with missing owner roles
+func runStartupMigrations(client *firestore.Client) {
+	ctx := context.Background()
+	log.Println("🔄 Running startup migrations...")
+
+	if client == nil {
+		log.Println("⚠️ Firestore client is nil, skipping migrations")
+		return
+	}
+
+	propertiesIter := client.Collection("properties").Documents(ctx)
+	defer propertiesIter.Stop()
+
+	updatedCount := 0
+	for {
+		doc, err := propertiesIter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Printf("Error iterating properties for migration: %v", err)
+			break
+		}
+
+		var prop models.Property
+		if err := doc.DataTo(&prop); err != nil {
+			log.Printf("Error deserializing property %s: %v", doc.Ref.ID, err)
+			continue
+		}
+
+		// Check if ownerRole is empty
+		if prop.OwnerRole == "" && prop.OwnerUID != "" {
+			userDoc, err := client.Collection("users").Doc(prop.OwnerUID).Get(ctx)
+			if err != nil {
+				log.Printf("Could not fetch owner %s for property %s: %v", prop.OwnerUID, doc.Ref.ID, err)
+				continue
+			}
+
+			var user models.User
+			if err := userDoc.DataTo(&user); err != nil {
+				log.Printf("Could not deserialize owner %s for property %s: %v", prop.OwnerUID, doc.Ref.ID, err)
+				continue
+			}
+
+			role := string(user.Role)
+			if role == "" {
+				role = "individual" // default fallback
+			}
+
+			// Update property in Firestore
+			_, err = doc.Ref.Update(ctx, []firestore.Update{
+				{Path: "ownerRole", Value: role},
+			})
+			if err != nil {
+				log.Printf("Failed to update ownerRole for property %s: %v", doc.Ref.ID, err)
+			} else {
+				log.Printf("Successfully migrated property %s (%s) ownerRole to %s", doc.Ref.ID, prop.Title, role)
+				updatedCount++
+			}
+		}
+	}
+	log.Printf("✅ Startup migrations finished. Updated %d properties.", updatedCount)
 }

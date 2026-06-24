@@ -1211,7 +1211,9 @@ func (es *EmailService) SendTerminationRequestNotification(ownerEmail, ownerName
 </html>
 `, tenantName, propertyTitle, noticePeriod, ownerName)
 
-		return es.sendEmail(tenantEmail, tenantSubject, tenantBody)
+		if err := es.sendEmail(tenantEmail, tenantSubject, tenantBody); err != nil {
+			// Log but continue
+		}
 	}
 
 	return nil

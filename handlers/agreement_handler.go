@@ -150,6 +150,7 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 	var req struct {
 		PropertyID      string `json:"propertyId" validate:"required"`
 		NoticePeriod    string `json:"noticePeriod"`    // "1 Month", "2 Months", "3 Months", "Immediate"
+		NoticeStartDate string `json:"noticeStartDate"` // Added
 		TerminationDate string `json:"terminationDate"` // Calculated date
 	}
 
@@ -203,7 +204,7 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 	}
 
 	// CHECK: Is this a Notice Period or Immediate Termination?
-	isNotice := req.NoticePeriod != "" && req.NoticePeriod != "Immediate"
+	isNotice := req.NoticePeriod != ""
 
 	var updateData map[string]interface{}
 	var successMessage string
@@ -300,8 +301,44 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 		}()
 	}
 
-	// Notify Admin (Simplified for brevity, can enable if needed)
-	// ...
+	// Create admin notification when owner terminates or serves notice
+	notificationType := "agreement_termination"
+	var notificationTitle string
+	var notificationMessage string
+
+	if isNotice {
+		notificationTitle = "Notice Served by Owner"
+		notificationMessage = fmt.Sprintf("Owner %s has served a %s termination notice for property %s. Notice Starts From: %s. Anticipated Termination Date: %s. Tenant: %s.", ownerName, req.NoticePeriod, property.Title, req.NoticeStartDate, req.TerminationDate, tenantName)
+	} else {
+		notificationTitle = "Agreement Terminated Immediately"
+		notificationMessage = fmt.Sprintf("Owner %s has immediately terminated the agreement for property %s. Tenant: %s.", ownerName, property.Title, tenantName)
+	}
+
+	notificationReq := models.CreateAdminNotificationRequest{
+		Type:                notificationType,
+		Title:               notificationTitle,
+		Message:             notificationMessage,
+		PropertyID:          req.PropertyID,
+		OwnerID:             property.OwnerUID,
+		OwnerName:           ownerName,
+		OwnerEmail:          ownerEmail,
+		OwnerPhone:          ownerPhone,
+		OwnerRole:           property.OwnerRole,
+		UserName:            tenantName,
+		UserEmail:           tenantEmail,
+		UserPhone:           tenantPhone,
+		TenantName:          tenantName,
+		TenantPhone:         tenantPhone,
+		TenantEmail:         tenantEmail,
+		PropertyTitle:       property.Title,
+		PropertyAddress:     property.Location,
+		PropertyListingType: property.ListingType,
+		Timestamp:           time.Now().Format(time.RFC3339),
+		IsRead:              false,
+		Priority:            "high",
+	}
+
+	_, _ = h.adminNotificationService.CreateNotification(ctx, notificationReq)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -329,8 +366,10 @@ func (h *AgreementHandler) RequestTermination(w http.ResponseWriter, r *http.Req
 	}
 
 	var req struct {
-		PropertyID   string `json:"propertyId" validate:"required"`
-		NoticePeriod string `json:"noticePeriod"` // Added noticePeriod
+		PropertyID      string `json:"propertyId" validate:"required"`
+		NoticePeriod    string `json:"noticePeriod"`    // Added noticePeriod
+		NoticeStartDate string `json:"noticeStartDate"` // Added
+		TerminationDate string `json:"terminationDate"` // Calculated date
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -402,7 +441,7 @@ func (h *AgreementHandler) RequestTermination(w http.ResponseWriter, r *http.Req
 	notificationReq := models.CreateAdminNotificationRequest{
 		Type:          "agreement_termination", // Changed from termination_request
 		Title:         "Termination Requested by Tenant",
-		Message:       fmt.Sprintf("Tenant %s has requested termination for property %s.\nNotice Period: %s", tenantName, property.Title, req.NoticePeriod),
+		Message:       fmt.Sprintf("Tenant %s has requested termination for property %s.\nNotice Period: %s\nNotice Starts From: %s\nAnticipated Termination Date: %s", tenantName, property.Title, req.NoticePeriod, req.NoticeStartDate, req.TerminationDate),
 		PropertyID:    req.PropertyID,
 		OwnerID:       property.OwnerUID,
 		OwnerName:     property.OwnerName,

@@ -149,6 +149,7 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 			"employmentStatus":     tenant.EmploymentStatus,
 			"employer":             tenant.Employer,
 			"monthlyIncome":        tenant.MonthlyIncome,
+			"noticePeriod":         tenant.NoticePeriod,
 			"notes":                tenant.Notes,
 			"isActive":             tenant.IsActive,
 			"createdAt":            tenant.CreatedAt,
@@ -217,6 +218,7 @@ func (h *TenantHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		{Path: "tenants", Value: allTenants},
 		{Path: "rentalStatus", Value: "rented"},
 		{Path: "listingType", Value: "rent"},
+		{Path: "noticePeriod", Value: requestData.Tenants[0].NoticePeriod},
 		{Path: "updatedAt", Value: time.Now()},
 	})
 	if err != nil {

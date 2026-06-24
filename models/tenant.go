@@ -26,6 +26,7 @@ type Tenant struct {
 	LeaseEndDate    string `json:"leaseEndDate" firestore:"leaseEndDate"`
 	MonthlyRent     string `json:"monthlyRent" firestore:"monthlyRent"`
 	SecurityDeposit string `json:"securityDeposit" firestore:"securityDeposit"`
+	NoticePeriod    string `json:"noticePeriod" firestore:"noticePeriod"`
 
 	// Payment Details
 	PaymentDueDate       string `json:"paymentDueDate" firestore:"paymentDueDate"`

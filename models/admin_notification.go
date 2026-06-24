@@ -21,6 +21,7 @@ type AdminNotification struct {
 	OwnerName  string `firestore:"ownerName" json:"ownerName"`
 	OwnerPhone string `firestore:"ownerPhone,omitempty" json:"ownerPhone,omitempty"`
 	OwnerEmail string `firestore:"ownerEmail,omitempty" json:"ownerEmail,omitempty"`
+	OwnerRole  string `firestore:"ownerRole,omitempty" json:"ownerRole,omitempty"`
 	// User details for property enquiry notifications
 	UserID    string `firestore:"userId,omitempty" json:"userId,omitempty"`
 	UserName  string `firestore:"userName,omitempty" json:"userName,omitempty"`
@@ -66,6 +67,7 @@ type CreateAdminNotificationRequest struct {
 	OwnerName  string `json:"ownerName"`  // Optional for service requests
 	OwnerPhone string `json:"ownerPhone,omitempty"`
 	OwnerEmail string `json:"ownerEmail,omitempty"`
+	OwnerRole  string `json:"ownerRole,omitempty"`
 	// User details for property enquiry notifications
 	UserID    string `json:"userId,omitempty"`
 	UserName  string `json:"userName,omitempty"`

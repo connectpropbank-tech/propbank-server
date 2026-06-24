@@ -96,6 +96,7 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		PropertyType:  req.PropertyType,
 		Configuration: req.Configuration,
 		ListingType:   req.ListingType,
+		IsSold:        req.IsSold,
 
 		// Unit Details
 		UnitNumber: req.UnitNumber,
@@ -162,9 +163,22 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		OwnerUID:   req.OwnerUID,
 		OwnerName:  owner.Name,
 		OwnerEmail: owner.Email,
+		OwnerPhone: owner.PhoneNumber,
+		OwnerRole:  string(owner.Role),
 
 		// Status - set default to "active" if not provided
 		Status: "active", // Default status for new properties
+
+		// Pre-leased Details
+		IsPreLeased:           req.IsPreLeased,
+		PreLeasedType:         req.PreLeasedType,
+		AgreementTerm:         req.AgreementTerm,
+		LockInPeriodPreLeased: req.LockInPeriodPreLeased,
+		RentalIncome:          req.RentalIncome,
+		Escalation:            req.Escalation,
+		TenantDetails:         req.TenantDetails,
+		Purpose:               req.Purpose,
+		SpecificRequirement:   req.SpecificRequirement,
 	}
 
 	// Logic to populate Tenants slice if property is rented
@@ -225,12 +239,73 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 		// We will do it AFTER successful creation below.
 	}
 
+	// Logic to populate Buyers slice if property is sold
+	if req.IsSold {
+		buyer := models.BuyerInfo{
+			ID:        fmt.Sprintf("buyer_%d", time.Now().UnixNano()),
+			FirstName: req.BuyerFirstName,
+			LastName:  req.BuyerLastName,
+			Phone:     req.BuyerPhone,
+			IsActive:  true,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		property.Buyers = []models.BuyerInfo{buyer}
+	}
+
 	// Create property in database
 	createdProperty, err := h.propertyService.CreateProperty(r.Context(), property)
 	if err != nil {
 		http.Error(w, "Failed to create property", http.StatusInternalServerError)
 		return
 	}
+
+	// Create admin notification when property is added
+	buyersJSON := ""
+	if len(createdProperty.Buyers) > 0 {
+		if b, err := json.Marshal(createdProperty.Buyers); err == nil {
+			buyersJSON = string(b)
+		}
+	}
+
+	tenantName := ""
+	tenantEmail := ""
+	tenantPhone := ""
+	if len(createdProperty.Tenants) > 0 {
+		tenant := createdProperty.Tenants[0]
+		tenantName = fmt.Sprintf("%s %s", tenant.FirstName, tenant.LastName)
+		tenantEmail = tenant.Email
+		tenantPhone = tenant.Phone
+	}
+
+	ownerRole := ""
+	if owner != nil {
+		ownerRole = string(owner.Role)
+	}
+
+	notificationReq := models.CreateAdminNotificationRequest{
+		Type:                "property_added",
+		Title:               "New Property Added",
+		Message:             fmt.Sprintf("New property \"%s\" has been added by owner: %s", createdProperty.Title, createdProperty.OwnerName),
+		PropertyID:          createdProperty.ID,
+		OwnerID:             createdProperty.OwnerUID,
+		OwnerName:           createdProperty.OwnerName,
+		OwnerEmail:          createdProperty.OwnerEmail,
+		OwnerPhone:          createdProperty.OwnerPhone,
+		OwnerRole:           ownerRole,
+		TenantName:          tenantName,
+		TenantEmail:         tenantEmail,
+		TenantPhone:         tenantPhone,
+		Buyers:              buyersJSON,
+		PropertyTitle:       createdProperty.Title,
+		PropertyAddress:     createdProperty.Location,
+		PropertyListingType: createdProperty.ListingType,
+		Timestamp:           time.Now().Format(time.RFC3339),
+		IsRead:              false,
+		Priority:            "medium",
+	}
+
+	_, _ = h.adminNotificationService.CreateNotification(r.Context(), notificationReq)
 
 	// Update tenant users with the rented property ID if they were linked
 	if len(property.Tenants) > 0 {
@@ -336,6 +411,7 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 			WantToSell:            createdProperty.WantToSell,
 			Status:                createdProperty.Status,
 			IsActive:              createdProperty.IsActive,
+			IsSold:                createdProperty.IsSold,
 			CreatedAt:             createdProperty.CreatedAt,
 			UpdatedAt:             createdProperty.UpdatedAt,
 			Bedrooms:              createdProperty.Bedrooms,
@@ -970,13 +1046,26 @@ func (h *PropertyHandler) convertToPropertyResponse(property models.Property) mo
 		OwnerName:             property.OwnerName,
 		OwnerEmail:            property.OwnerEmail,
 		OwnerPhone:            property.OwnerPhone,
+		OwnerRole:             property.OwnerRole,
 		WantToSell:            property.WantToSell,
 		Status:                property.Status,
 		IsActive:              property.IsActive,
+		IsSold:                property.IsSold,
 		CreatedAt:             property.CreatedAt,
 		UpdatedAt:             property.UpdatedAt,
 		Bedrooms:              property.Bedrooms,
 		Bathrooms:             property.Bathrooms,
+
+		// Pre-leased Details
+		IsPreLeased:           property.IsPreLeased,
+		PreLeasedType:         property.PreLeasedType,
+		AgreementTerm:         property.AgreementTerm,
+		LockInPeriodPreLeased: property.LockInPeriodPreLeased,
+		RentalIncome:          property.RentalIncome,
+		Escalation:            property.Escalation,
+		TenantDetails:         property.TenantDetails,
+		Purpose:               property.Purpose,
+		SpecificRequirement:   property.SpecificRequirement,
 	}
 }
 
@@ -1050,6 +1139,11 @@ func (h *PropertyHandler) createWantToSellNotification(ctx context.Context, prop
 		}
 	}
 
+	ownerRole := ""
+	if owner != nil {
+		ownerRole = string(owner.Role)
+	}
+
 	// Create notification request
 	notificationReq := models.CreateAdminNotificationRequest{
 		Type:       "want_to_sell",
@@ -1060,6 +1154,7 @@ func (h *PropertyHandler) createWantToSellNotification(ctx context.Context, prop
 		OwnerName:  property.OwnerName,
 		OwnerPhone: ownerPhone,
 		OwnerEmail: ownerEmail,
+		OwnerRole:  ownerRole,
 		// Tenant info
 		TenantName:  tenantName,
 		TenantEmail: tenantEmail,
@@ -1114,6 +1209,11 @@ func (h *PropertyHandler) createWantToSellCancelledNotification(ctx context.Cont
 		}
 	}
 
+	ownerRole := ""
+	if owner != nil {
+		ownerRole = string(owner.Role)
+	}
+
 	// Create notification request
 	notificationReq := models.CreateAdminNotificationRequest{
 		Type:       "want_to_sell_cancelled",
@@ -1124,6 +1224,7 @@ func (h *PropertyHandler) createWantToSellCancelledNotification(ctx context.Cont
 		OwnerName:  property.OwnerName,
 		OwnerPhone: ownerPhone,
 		OwnerEmail: ownerEmail,
+		OwnerRole:  ownerRole,
 		// Tenant info
 		TenantName:  tenantName,
 		TenantEmail: tenantEmail,

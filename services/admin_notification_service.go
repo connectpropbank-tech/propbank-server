@@ -48,6 +48,7 @@ func (s *AdminNotificationService) CreateNotification(ctx context.Context, req m
 		OwnerName:           req.OwnerName,
 		OwnerPhone:          req.OwnerPhone,
 		OwnerEmail:          req.OwnerEmail,
+		OwnerRole:           req.OwnerRole,
 		UserID:              req.UserID,
 		UserName:            req.UserName,
 		UserEmail:           req.UserEmail,

@@ -207,11 +207,24 @@ type Property struct {
 	OwnerName  string    `json:"ownerName" firestore:"ownerName"`
 	OwnerEmail string    `json:"ownerEmail" firestore:"ownerEmail"`
 	OwnerPhone string    `json:"ownerPhone" firestore:"ownerPhone"`
+	OwnerRole  string    `json:"ownerRole" firestore:"ownerRole"`
 	WantToSell bool      `json:"wantToSell" firestore:"wantToSell"` // Toggle for "Want to Sell?" - can be toggled ON/OFF
 	Status     string    `json:"status" firestore:"status"`         // "active" or "inactive" (default: "active")
 	IsActive   bool      `json:"isActive" firestore:"isActive"`     // Legacy field, kept for backward compatibility
+	IsSold     bool      `json:"isSold" firestore:"isSold"`         // Track if property is sold
 	CreatedAt  time.Time `json:"createdAt" firestore:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt" firestore:"updatedAt"`
+	UpdatedAt time.Time `json:"updatedAt" firestore:"updatedAt"`
+
+	// Pre-leased Details
+	IsPreLeased           bool   `json:"isPreLeased" firestore:"isPreLeased"`
+	PreLeasedType         string `json:"preLeasedType" firestore:"preLeasedType"`
+	AgreementTerm         string `json:"agreementTerm" firestore:"agreementTerm"`
+	LockInPeriodPreLeased string `json:"lockInPeriodPreLeased" firestore:"lockInPeriodPreLeased"`
+	RentalIncome          string `json:"rentalIncome" firestore:"rentalIncome"`
+	Escalation            string `json:"escalation" firestore:"escalation"`
+	TenantDetails         string `json:"tenantDetails" firestore:"tenantDetails"`
+	Purpose               string `json:"purpose" firestore:"purpose"`
+	SpecificRequirement   string `json:"specificRequirement" firestore:"specificRequirement"`
 }
 
 type PropertyResponse struct {
@@ -272,14 +285,27 @@ type PropertyResponse struct {
 	OwnerName             string             `json:"ownerName"`
 	OwnerEmail            string             `json:"ownerEmail"`
 	OwnerPhone            string             `json:"ownerPhone"`
+	OwnerRole             string             `json:"ownerRole"`
 	WantToSell            bool               `json:"wantToSell"` // Toggle for "Want to Sell?" - can be toggled ON/OFF
 	Status                string             `json:"status"`     // "active" or "inactive"
 	IsActive              bool               `json:"isActive"`   // Legacy field
+	IsSold                bool               `json:"isSold"`     // Track if property is sold
 	CreatedAt             time.Time          `json:"createdAt"`
 	UpdatedAt             time.Time          `json:"updatedAt"`
 	Bedrooms              int                `json:"bedrooms"`
 	Bathrooms             float64            `json:"bathrooms"`
 	UserRole              string             `json:"userRole,omitempty"` // "owner" or "tenant" - indicates the current user's relationship to the property
+
+	// Pre-leased Details
+	IsPreLeased           bool   `json:"isPreLeased"`
+	PreLeasedType         string `json:"preLeasedType"`
+	AgreementTerm         string `json:"agreementTerm"`
+	LockInPeriodPreLeased string `json:"lockInPeriodPreLeased"`
+	RentalIncome          string `json:"rentalIncome"`
+	Escalation            string `json:"escalation"`
+	TenantDetails         string `json:"tenantDetails"`
+	Purpose               string `json:"purpose"`
+	SpecificRequirement   string `json:"specificRequirement"`
 }
 
 type CreatePropertyRequest struct {
@@ -360,4 +386,21 @@ type CreatePropertyRequest struct {
 
 	// Owner Info
 	OwnerUID string `json:"ownerUID"`
+
+	// Buyer Information (if sold out already)
+	IsSold         bool   `json:"isSold"`
+	BuyerFirstName string `json:"buyerFirstName"`
+	BuyerLastName  string `json:"buyerLastName"`
+	BuyerPhone     string `json:"buyerPhone"`
+
+	// Pre-leased Details
+	IsPreLeased           bool   `json:"isPreLeased"`
+	PreLeasedType         string `json:"preLeasedType"`
+	AgreementTerm         string `json:"agreementTerm"`
+	LockInPeriodPreLeased string `json:"lockInPeriodPreLeased"`
+	RentalIncome          string `json:"rentalIncome"`
+	Escalation            string `json:"escalation"`
+	TenantDetails         string `json:"tenantDetails"`
+	Purpose               string `json:"purpose"`
+	SpecificRequirement   string `json:"specificRequirement"`
 }

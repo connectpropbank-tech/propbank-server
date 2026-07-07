@@ -103,14 +103,19 @@ func (h *InspectionReportHandler) CreateInspectionReport(w http.ResponseWriter, 
 		buyersString = string(buyersJSON)
 	}
 
+	formattedType := "On Possession"
+	if req.ReportType == "on_handover" {
+		formattedType = "On Handover"
+	}
+
 	// Create admin notification
 	notificationReq := models.CreateAdminNotificationRequest{
 		Type:  "inspection_report",
 		Title: "New Inspection Report Submitted",
 		Message: strings.Join([]string{
-			user.Name + " submitted an inspection report (" + req.ReportType + ") for property: " + property.Title,
+			user.Name + " submitted an inspection report (" + formattedType + ") for property: " + property.Title,
 			"Property ID: " + req.PropertyID,
-			"Report Type: " + req.ReportType,
+			"Report Type: " + formattedType,
 		}, "\n"),
 		PropertyID:          req.PropertyID,
 		OwnerID:             property.OwnerUID,

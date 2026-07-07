@@ -880,6 +880,45 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Check if rent was increased
+	if newRentStr, ok := updateData["monthlyRent"].(string); ok && existingProperty.MonthlyRent != "" && newRentStr != "" && newRentStr != existingProperty.MonthlyRent {
+		oldRentVal, err1 := parsePrice(existingProperty.MonthlyRent)
+		newRentVal, err2 := parsePrice(newRentStr)
+		
+		if err1 == nil && err2 == nil && newRentVal > oldRentVal {
+			tenantName := updatedProperty.TenantName
+			tenantEmail := updatedProperty.TenantEmail
+			
+			// Try to get from active tenants array if not at root
+			if tenantEmail == "" && len(updatedProperty.Tenants) > 0 {
+				for _, t := range updatedProperty.Tenants {
+					if t.IsActive && t.Email != "" {
+						if tenantName == "" {
+							tenantName = t.FirstName + " " + t.LastName
+						}
+						tenantEmail = t.Email
+						break
+					}
+				}
+			}
+			
+			if tenantEmail != "" {
+				rentUpdateData := services.RentUpdateEmailData{
+					TenantName:      tenantName,
+					TenantEmail:     tenantEmail,
+					PropertyTitle:   updatedProperty.Title,
+					PropertyAddress: updatedProperty.Location,
+					OldRent:         existingProperty.MonthlyRent,
+					NewRent:         newRentStr,
+				}
+				
+				go func() {
+					_ = h.emailService.SendRentUpdateEmail(rentUpdateData)
+				}()
+			}
+		}
+	}
+
 	// If tenants were updated, map property information to users with userUID and send email notifications
 	if tenants, hasTenants := updateData["tenants"]; hasTenants {
 		if tenantsArray, ok := tenants.([]interface{}); ok {

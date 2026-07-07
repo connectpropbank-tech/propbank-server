@@ -533,29 +533,7 @@ func (es *EmailService) buildTenantAddedEmail(data TenantAddedEmailData, isForTe
                     </tr>
                 </table>
 
-                <!-- Tenant Details -->
-                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #eff6ff; border-radius: 12px; border: 1px solid #bfdbfe; margin-bottom: 20px;">
-                    <tr>
-                        <td style="padding: 20px;">
-                            <h3 style="color: #1e40af; margin: 0 0 15px 0; font-size: 16px;">👤 Tenant Details</h3>
-                            <p style="margin: 5px 0;"><strong>Name:</strong> %s</p>
-                            <p style="margin: 5px 0;"><strong>Email:</strong> %s</p>
-                            <p style="margin: 5px 0;"><strong>Phone:</strong> %s</p>
-                        </td>
-                    </tr>
-                </table>
 
-                <!-- Owner Details -->
-                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #fef3c7; border-radius: 12px; border: 1px solid #fcd34d; margin-bottom: 20px;">
-                    <tr>
-                        <td style="padding: 20px;">
-                            <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 16px;">🏠 Owner Details</h3>
-                            <p style="margin: 5px 0;"><strong>Name:</strong> %s</p>
-                            <p style="margin: 5px 0;"><strong>Email:</strong> %s</p>
-                            <p style="margin: 5px 0;"><strong>Phone:</strong> %s</p>
-                        </td>
-                    </tr>
-                </table>
 
                 <!-- Agreement Period -->
                 <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #f0fdf4; border-radius: 12px; border: 1px solid #86efac;">
@@ -589,12 +567,7 @@ func (es *EmailService) buildTenantAddedEmail(data TenantAddedEmailData, isForTe
 		data.PropertyAddress,
 		data.PropertyType,
 		data.MonthlyRent,
-		data.TenantName,
-		data.TenantEmail,
-		data.TenantPhone,
-		data.OwnerName,
-		data.OwnerEmail,
-		data.OwnerPhone,
+
 		data.AgreementStart,
 		data.AgreementEnd,
 	)
@@ -617,6 +590,7 @@ type AgreementTerminationEmailData struct {
 	AgreementStartDate string
 	AgreementEndDate   string
 	AgreementPeriod    string
+	RaisedBy           string // Added RaisedBy field
 }
 
 // SendAgreementTerminationNotification sends email to both owner and tenant when agreement is terminated
@@ -748,6 +722,9 @@ func (es *EmailService) buildAgreementNoticeEmail(data AgreementTerminationEmail
                              <p style="color: #64748b; font-size: 13px; margin: 10px 0 0 0; text-align: center;">
                                 Anticipated Termination Date
                             </p>
+                            <p style="color: #64748b; font-size: 14px; margin: 15px 0 0 0; text-align: center;">
+                                <strong>Notice Raised By:</strong> %s
+                            </p>
                         </td>
                     </tr>
                 </table>
@@ -780,6 +757,7 @@ func (es *EmailService) buildAgreementNoticeEmail(data AgreementTerminationEmail
 		data.PropertyType,
 		data.MonthlyRent,
 		data.TerminationDate,
+		data.RaisedBy, // Added RaisedBy
 	)
 }
 
@@ -793,9 +771,8 @@ func (es *EmailService) buildAgreementTerminationEmail(data AgreementTermination
 	if isForTenant {
 		recipientName = data.TenantName
 		headerText = "Agreement Termination Notice"
-		headerColor := "#dc2626"
+		headerColor = "#dc2626"
 		introText = "The property owner has terminated your rental agreement. Please review the details below."
-		_ = headerColor // avoid unused variable
 	}
 
 	return fmt.Sprintf(`
@@ -823,6 +800,7 @@ func (es *EmailService) buildAgreementTerminationEmail(data AgreementTermination
                     <h3 style="color: #dc2626; margin: 0 0 10px 0; font-size: 16px;">⚠️ Termination Details</h3>
                     <p style="margin: 5px 0;"><strong>Termination Date:</strong> %s</p>
                     <p style="margin: 5px 0;"><strong>Reason:</strong> %s</p>
+                    <p style="margin: 5px 0;"><strong>Notice Raised By:</strong> %s</p>
                 </div>
 
                 <!-- Property Details -->
@@ -837,29 +815,7 @@ func (es *EmailService) buildAgreementTerminationEmail(data AgreementTermination
                     </tr>
                 </table>
 
-                <!-- Tenant Details -->
-                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #eff6ff; border-radius: 12px; border: 1px solid #bfdbfe; margin-bottom: 20px;">
-                    <tr>
-                        <td style="padding: 20px;">
-                            <h3 style="color: #1e40af; margin: 0 0 15px 0; font-size: 16px;">👤 Tenant Details</h3>
-                            <p style="margin: 5px 0;"><strong>Name:</strong> %s</p>
-                            <p style="margin: 5px 0;"><strong>Email:</strong> %s</p>
-                            <p style="margin: 5px 0;"><strong>Phone:</strong> %s</p>
-                        </td>
-                    </tr>
-                </table>
 
-                <!-- Owner Details -->
-                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #fef3c7; border-radius: 12px; border: 1px solid #fcd34d; margin-bottom: 20px;">
-                    <tr>
-                        <td style="padding: 20px;">
-                            <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 16px;">🏠 Owner Details</h3>
-                            <p style="margin: 5px 0;"><strong>Name:</strong> %s</p>
-                            <p style="margin: 5px 0;"><strong>Email:</strong> <a href="mailto:%s" style="color: #2563eb;">%s</a></p>
-                            <p style="margin: 5px 0;"><strong>Phone:</strong> %s</p>
-                        </td>
-                    </tr>
-                </table>
 
                 <!-- Agreement Period -->
                 <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #ecfdf5; border-radius: 12px; border: 1px solid #6ee7b7;">
@@ -892,16 +848,11 @@ func (es *EmailService) buildAgreementTerminationEmail(data AgreementTermination
 		introText,
 		data.TerminationDate,
 		data.Reason,
+		data.RaisedBy,
 		data.PropertyTitle,
 		data.PropertyAddress,
 		data.PropertyType,
-		data.TenantName,
-		data.TenantEmail,
-		data.TenantPhone,
-		data.OwnerName,
-		data.OwnerEmail,
-		data.OwnerEmail,
-		data.OwnerPhone,
+
 		data.AgreementStartDate,
 		data.AgreementEndDate,
 	)
@@ -1287,17 +1238,7 @@ func (es *EmailService) buildPaymentDueUpdateEmail(data PaymentDueUpdateEmailDat
                     </tr>
                 </table>
 
-                <!-- Owner Details -->
-                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #fef3c7; border-radius: 12px; border: 1px solid #fcd34d;">
-                    <tr>
-                        <td style="padding: 20px;">
-                            <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 16px;">🏠 Owner Details</h3>
-                            <p style="margin: 5px 0;"><strong>Name:</strong> %s</p>
-                            <p style="margin: 5px 0;"><strong>Email:</strong> <a href="mailto:%s" style="color: #2563eb;">%s</a></p>
-                            <p style="margin: 5px 0;"><strong>Phone:</strong> %s</p>
-                        </td>
-                    </tr>
-                </table>
+
             </td>
         </tr>
         <tr>
@@ -1317,9 +1258,187 @@ func (es *EmailService) buildPaymentDueUpdateEmail(data PaymentDueUpdateEmailDat
 		data.PropertyTitle,
 		data.NewDueDate,
 		data.PropertyAddress,
-		data.OwnerName,
-		data.OwnerEmail,
-		data.OwnerEmail,
-		data.OwnerPhone,
+
 	)
+}
+
+// RentUpdateEmailData contains data for rent update email
+type RentUpdateEmailData struct {
+	TenantName      string
+	TenantEmail     string
+	PropertyTitle   string
+	PropertyAddress string
+	OldRent         string
+	NewRent         string
+}
+
+// SendRentUpdateEmail sends email to tenant for rent update
+func (es *EmailService) SendRentUpdateEmail(data RentUpdateEmailData) error {
+	subject := "📈 Rent Update Notice - Propbank"
+	body := es.buildRentUpdateEmail(data)
+
+	if data.TenantEmail != "" {
+		return es.sendEmail(data.TenantEmail, subject, body)
+	}
+	return nil
+}
+
+// buildRentUpdateEmail builds the HTML email for rent update
+func (es *EmailService) buildRentUpdateEmail(data RentUpdateEmailData) string {
+	return fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #10b981 0%%, #059669 100%%); padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
+                <p style="color: #d1fae5; margin: 10px 0 0 0; font-size: 14px;">Rent Update Notification</p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 30px;">
+                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                    There has been an update to the monthly rent for your property <strong>%s</strong>.
+                </p>
+                
+                <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                    <table cellpadding="0" cellspacing="0" width="100%%">
+                        <tr>
+                            <td style="padding: 10px; border-bottom: 1px solid #bbf7d0;">
+                                <strong style="color: #166534;">Previous Rent:</strong> 
+                            </td>
+                            <td style="padding: 10px; border-bottom: 1px solid #bbf7d0; text-align: right; color: #15803d; font-weight: 600;">
+                                ₹%s
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px;">
+                                <strong style="color: #166534;">New Rent:</strong> 
+                            </td>
+                            <td style="padding: 10px; text-align: right; color: #15803d; font-weight: 700; font-size: 18px;">
+                                ₹%s
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+                    <tr>
+                        <td style="padding: 20px;">
+                            <h3 style="color: #1a365d; margin: 0 0 15px 0; font-size: 16px;">🏢 Property Details</h3>
+                            <p style="margin: 5px 0;"><strong>Address:</strong> %s</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td style="background-color: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="color: #64748b; font-size: 12px; margin: 0;">
+                    This email was sent by Propbank. Contact us at 
+                    <a href="mailto:connectpropbank@gmail.com" style="color: #2563eb;">connectpropbank@gmail.com</a>
+                </p>
+                <p style="color: #94a3b8; font-size: 11px; margin: 10px 0 0 0;">© 2025 Propbank. All rights reserved.</p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`, data.TenantName, data.PropertyTitle, data.OldRent, data.NewRent, data.PropertyAddress)
+}
+
+// SendRenewalRequestNotification sends email to owner and tenant when tenant requests renewal
+func (es *EmailService) SendRenewalRequestNotification(ownerEmail, ownerName, tenantName, tenantEmail, propertyTitle, propertyID string) error {
+	// 1. Send Email to Owner
+	ownerSubject := fmt.Sprintf("🔄 Renewal Request: %s", propertyTitle)
+	ownerBody := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #10b981 0%%, #059669 100%%); padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
+                <p style="color: #d1fae5; margin: 10px 0 0 0; font-size: 14px;">Renewal Request</p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 30px;">
+                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                    Your tenant, <strong>%s</strong>, has requested to renew the lease agreement for <strong>%s</strong>.
+                </p>
+                
+                <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                    <p style="color: #166534; font-size: 14px; margin: 0; font-weight: 500;">
+                        Action Required: Please review this request and take appropriate action (Renew Agreement) through the Propbank dashboard.
+                    </p>
+                </div>
+
+                <p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin: 0;">
+                    Property ID: %s
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`, ownerName, tenantName, propertyTitle, propertyID)
+
+	if err := es.sendEmail(ownerEmail, ownerSubject, ownerBody); err != nil {
+		// Log but continue
+	}
+
+	// 2. Send Confirmation Email to Tenant
+	if tenantEmail != "" {
+		tenantSubject := "Renewal Request Received - Propbank"
+		tenantBody := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #3b82f6 0%%, #2563eb 100%%); padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
+                <p style="color: #bfdbfe; margin: 10px 0 0 0; font-size: 14px;">Renewal Request Sent</p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 30px;">
+                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                    We have received your request to renew the agreement for <strong>%s</strong>.
+                </p>
+                
+                 <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                     <p style="color: #1e40af; font-size: 14px; margin: 0;">
+                        The owner (%s) has been notified. They will process your request shortly.
+                    </p>
+                </div>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`, tenantName, propertyTitle, ownerName)
+
+		return es.sendEmail(tenantEmail, tenantSubject, tenantBody)
+	}
+	return nil
 }

@@ -270,6 +270,7 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 				PropertyType:    property.PropertyType,
 				MonthlyRent:     property.MonthlyRent,
 				TerminationDate: req.TerminationDate,
+				RaisedBy:        "Owner", // The notice is served by owner
 			}
 			if err := h.emailService.SendAgreementNoticeNotification(emailData); err != nil {
 				// Log error
@@ -294,6 +295,7 @@ func (h *AgreementHandler) TerminateAgreement(w http.ResponseWriter, r *http.Req
 				AgreementEndDate:   property.AgreementEndDate,
 				AgreementPeriod:    property.AgreementPeriod,
 				MonthlyRent:        property.MonthlyRent,
+				RaisedBy:           "Owner",
 			}
 
 			if err := h.emailService.SendAgreementTerminationNotification(emailData); err != nil {
@@ -388,6 +390,7 @@ func (h *AgreementHandler) RequestTermination(w http.ResponseWriter, r *http.Req
 	isTenant := false
 	var tenantName string = "Tenant"
 	var tenantEmail string = ""
+	var tenantPhone string = ""
 
 	// Check TenantEmail on property struct (now that we added it)
 	user, err := h.userService.GetUserByID(ctx, userID)
@@ -396,6 +399,7 @@ func (h *AgreementHandler) RequestTermination(w http.ResponseWriter, r *http.Req
 			isTenant = true
 			tenantName = property.TenantName
 			tenantEmail = property.TenantEmail
+			tenantPhone = property.MobileNumber
 		} else if property.MobileNumber != "" && property.MobileNumber == user.PhoneNumber {
 			isTenant = true
 			tenantName = property.TenantName
@@ -404,6 +408,7 @@ func (h *AgreementHandler) RequestTermination(w http.ResponseWriter, r *http.Req
 			} else {
 				tenantEmail = user.Email // Fallback
 			}
+			tenantPhone = property.MobileNumber
 		} else {
 			// Check tenants array
 			for _, t := range property.Tenants {
@@ -411,9 +416,22 @@ func (h *AgreementHandler) RequestTermination(w http.ResponseWriter, r *http.Req
 					isTenant = true
 					tenantName = t.FirstName + " " + t.LastName
 					tenantEmail = t.Email
+					tenantPhone = t.Phone
 					break
 				}
 			}
+		}
+	}
+
+	if tenantPhone == "" && user != nil {
+		tenantPhone = user.PhoneNumber
+	}
+
+	ownerPhone := property.OwnerPhone
+	if ownerPhone == "" {
+		owner, err := h.userService.GetUserByID(ctx, property.OwnerUID)
+		if err == nil && owner != nil {
+			ownerPhone = owner.PhoneNumber
 		}
 	}
 
@@ -439,18 +457,26 @@ func (h *AgreementHandler) RequestTermination(w http.ResponseWriter, r *http.Req
 
 	// Create admin notification
 	notificationReq := models.CreateAdminNotificationRequest{
-		Type:          "agreement_termination", // Changed from termination_request
-		Title:         "Termination Requested by Tenant",
-		Message:       fmt.Sprintf("Tenant %s has requested termination for property %s.\nNotice Period: %s\nNotice Starts From: %s\nAnticipated Termination Date: %s", tenantName, property.Title, req.NoticePeriod, req.NoticeStartDate, req.TerminationDate),
-		PropertyID:    req.PropertyID,
-		OwnerID:       property.OwnerUID,
-		OwnerName:     property.OwnerName,
-		OwnerEmail:    property.OwnerEmail,
-		UserName:      tenantName,
-		PropertyTitle: property.Title,
-		Timestamp:     time.Now().Format(time.RFC3339),
-		IsRead:        false,
-		Priority:      "medium",
+		Type:                "agreement_termination", // Changed from termination_request
+		Title:               "Termination Requested by Tenant",
+		Message:             fmt.Sprintf("Tenant %s has requested termination for property %s.\nNotice Period: %s\nNotice Starts From: %s\nAnticipated Termination Date: %s", tenantName, property.Title, req.NoticePeriod, req.NoticeStartDate, req.TerminationDate),
+		PropertyID:          req.PropertyID,
+		OwnerID:             property.OwnerUID,
+		OwnerName:           property.OwnerName,
+		OwnerEmail:          property.OwnerEmail,
+		OwnerPhone:          ownerPhone,
+		UserName:            tenantName,
+		UserEmail:           tenantEmail,
+		UserPhone:           tenantPhone,
+		TenantName:          tenantName,
+		TenantEmail:         tenantEmail,
+		TenantPhone:         tenantPhone,
+		PropertyTitle:       property.Title,
+		PropertyAddress:     property.Location,
+		PropertyListingType: property.ListingType,
+		Timestamp:           time.Now().Format(time.RFC3339),
+		IsRead:              false,
+		Priority:            "medium",
 	}
 	h.adminNotificationService.CreateNotification(ctx, notificationReq)
 
@@ -498,6 +524,7 @@ func (h *AgreementHandler) RequestRenewal(w http.ResponseWriter, r *http.Request
 	isTenant := false
 	var tenantName string = "Tenant"
 	var tenantEmail string = ""
+	var tenantPhone string = ""
 
 	user, err := h.userService.GetUserByID(ctx, userID)
 	if err == nil && user != nil {
@@ -505,6 +532,7 @@ func (h *AgreementHandler) RequestRenewal(w http.ResponseWriter, r *http.Request
 			isTenant = true
 			tenantName = property.TenantName
 			tenantEmail = property.TenantEmail
+			tenantPhone = property.MobileNumber
 		} else if property.MobileNumber != "" && property.MobileNumber == user.PhoneNumber {
 			isTenant = true
 			tenantName = property.TenantName
@@ -513,6 +541,7 @@ func (h *AgreementHandler) RequestRenewal(w http.ResponseWriter, r *http.Request
 			} else {
 				tenantEmail = user.Email // Fallback
 			}
+			tenantPhone = property.MobileNumber
 		} else {
 			// Check tenants array
 			for _, t := range property.Tenants {
@@ -520,9 +549,22 @@ func (h *AgreementHandler) RequestRenewal(w http.ResponseWriter, r *http.Request
 					isTenant = true
 					tenantName = t.FirstName + " " + t.LastName
 					tenantEmail = t.Email
+					tenantPhone = t.Phone
 					break
 				}
 			}
+		}
+	}
+
+	if tenantPhone == "" && user != nil {
+		tenantPhone = user.PhoneNumber
+	}
+
+	ownerPhone := property.OwnerPhone
+	if ownerPhone == "" {
+		owner, err := h.userService.GetUserByID(ctx, property.OwnerUID)
+		if err == nil && owner != nil {
+			ownerPhone = owner.PhoneNumber
 		}
 	}
 
@@ -533,20 +575,41 @@ func (h *AgreementHandler) RequestRenewal(w http.ResponseWriter, r *http.Request
 
 	// Create admin notification
 	notificationReq := models.CreateAdminNotificationRequest{
-		Type:          "agreement_renewal",
-		Title:         "Renewal Requested by Tenant",
-		Message:       fmt.Sprintf("Tenant %s (%s) has requested renewal for property %s.", tenantName, tenantEmail, property.Title),
-		PropertyID:    req.PropertyID,
-		OwnerID:       property.OwnerUID,
-		OwnerName:     property.OwnerName,
-		OwnerEmail:    property.OwnerEmail,
-		UserName:      tenantName,
-		PropertyTitle: property.Title,
-		Timestamp:     time.Now().Format(time.RFC3339),
-		IsRead:        false,
-		Priority:      "medium",
+		Type:                "agreement_renewal",
+		Title:               "Renewal Requested by Tenant",
+		Message:             fmt.Sprintf("Tenant %s (%s) has requested renewal for property %s.", tenantName, tenantEmail, property.Title),
+		PropertyID:          req.PropertyID,
+		OwnerID:             property.OwnerUID,
+		OwnerName:           property.OwnerName,
+		OwnerEmail:          property.OwnerEmail,
+		OwnerPhone:          ownerPhone,
+		UserName:            tenantName,
+		UserEmail:           tenantEmail,
+		UserPhone:           tenantPhone,
+		TenantName:          tenantName,
+		TenantEmail:         tenantEmail,
+		TenantPhone:         tenantPhone,
+		PropertyTitle:       property.Title,
+		PropertyAddress:     property.Location,
+		PropertyListingType: property.ListingType,
+		Timestamp:           time.Now().Format(time.RFC3339),
+		IsRead:              false,
+		Priority:            "medium",
 	}
 	h.adminNotificationService.CreateNotification(ctx, notificationReq)
+
+	// Send email notification to owner and tenant
+	if err := h.emailService.SendRenewalRequestNotification(
+		property.OwnerEmail,
+		property.OwnerName,
+		tenantName,
+		tenantEmail,
+		property.Title,
+		req.PropertyID,
+	); err != nil {
+		// Log error but continue since this is non-critical
+		fmt.Printf("Failed to send renewal request email: %v\n", err)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

@@ -41,20 +41,24 @@ type AdminNotification struct {
 	ServiceComment string `firestore:"serviceComment,omitempty" json:"serviceComment,omitempty"`
 	ServiceImage   string `firestore:"serviceImage,omitempty" json:"serviceImage,omitempty"`
 	// General inquiry specific fields
-	InquiryType  string     `firestore:"inquiryType,omitempty" json:"inquiryType,omitempty"`
-	PropertyType string     `firestore:"propertyType,omitempty" json:"propertyType,omitempty"`
-	RequestVisit bool       `firestore:"requestVisit,omitempty" json:"requestVisit,omitempty"`
-	VisitDate    string     `firestore:"visitDate,omitempty" json:"visitDate,omitempty"`
-	VisitTime    string     `firestore:"visitTime,omitempty" json:"visitTime,omitempty"`
-	Timestamp    time.Time             `firestore:"timestamp" json:"timestamp"`
-	IsRead       bool                  `firestore:"isRead" json:"isRead"`
-	ResolvedAt   *time.Time            `firestore:"resolvedAt,omitempty" json:"resolvedAt,omitempty"`
-	Priority     string                `firestore:"priority" json:"priority"`
-	AdminRemarks string                `firestore:"adminRemarks,omitempty" json:"adminRemarks,omitempty"`
-	AdminImage   string                `firestore:"adminImage,omitempty" json:"adminImage,omitempty"`
+	InquiryType  string `firestore:"inquiryType,omitempty" json:"inquiryType,omitempty"`
+	PropertyType string `firestore:"propertyType,omitempty" json:"propertyType,omitempty"`
+	RequestVisit bool   `firestore:"requestVisit,omitempty" json:"requestVisit,omitempty"`
+	VisitDate    string `firestore:"visitDate,omitempty" json:"visitDate,omitempty"`
+	VisitTime    string `firestore:"visitTime,omitempty" json:"visitTime,omitempty"`
+	// Review specific fields
+	ReviewerType string          `firestore:"reviewerType,omitempty" json:"reviewerType,omitempty"`
+	TenantPart   TenantReviewPart `firestore:"tenantPart,omitempty" json:"tenantPart,omitempty"`
+	OwnerPart    OwnerReviewPart  `firestore:"ownerPart,omitempty" json:"ownerPart,omitempty"`
+	Timestamp      time.Time             `firestore:"timestamp" json:"timestamp"`
+	IsRead         bool                  `firestore:"isRead" json:"isRead"`
+	ResolvedAt     *time.Time            `firestore:"resolvedAt,omitempty" json:"resolvedAt,omitempty"`
+	Priority       string                `firestore:"priority" json:"priority"`
+	AdminRemarks   string                `firestore:"adminRemarks,omitempty" json:"adminRemarks,omitempty"`
+	AdminImage     string                `firestore:"adminImage,omitempty" json:"adminImage,omitempty"`
 	ArchiveHistory []ArchiveHistoryEntry `firestore:"archiveHistory,omitempty" json:"archiveHistory,omitempty"`
-	CreatedAt    time.Time             `firestore:"createdAt" json:"createdAt"`
-	UpdatedAt    time.Time             `firestore:"updatedAt" json:"updatedAt"`
+	CreatedAt      time.Time             `firestore:"createdAt" json:"createdAt"`
+	UpdatedAt      time.Time             `firestore:"updatedAt" json:"updatedAt"`
 }
 
 // CreateAdminNotificationRequest represents the request body for creating an admin notification
@@ -93,6 +97,10 @@ type CreateAdminNotificationRequest struct {
 	RequestVisit bool   `json:"requestVisit,omitempty"`
 	VisitDate    string `json:"visitDate,omitempty"`
 	VisitTime    string `json:"visitTime,omitempty"`
+	// Review specific fields
+	ReviewerType string           `json:"reviewerType,omitempty"`
+	TenantPart   TenantReviewPart `json:"tenantPart,omitempty"`
+	OwnerPart    OwnerReviewPart  `json:"ownerPart,omitempty"`
 	Timestamp    string `json:"timestamp" validate:"required"`
 	IsRead       bool   `json:"isRead"`
 	Priority     string `json:"priority"`

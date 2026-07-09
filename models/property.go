@@ -69,13 +69,15 @@ type TenantInfo struct {
 	Notes                          string             `json:"notes" firestore:"notes"`
 	IsActive                       bool               `json:"isActive" firestore:"isActive"`
 	NoticePeriod                   string             `json:"noticePeriod" firestore:"noticePeriod"`
-	LastRentPaymentReminderSentAt  time.Time          `json:"lastRentPaymentReminderSentAt" firestore:"lastRentPaymentReminderSentAt"`
-	LastNoticePeriodReminderSentAt time.Time          `json:"lastNoticePeriodReminderSentAt" firestore:"lastNoticePeriodReminderSentAt"`
+	// These fields are stored inconsistently (Firestore Timestamp in old records, string in newer ones).
+	// interface{} accepts both without deserialization errors.
+	LastRentPaymentReminderSentAt  interface{}        `json:"lastRentPaymentReminderSentAt,omitempty" firestore:"lastRentPaymentReminderSentAt,omitempty"`
+	LastNoticePeriodReminderSentAt interface{}        `json:"lastNoticePeriodReminderSentAt,omitempty" firestore:"lastNoticePeriodReminderSentAt,omitempty"`
 	RentSchedule                   []RentScheduleItem `json:"rentSchedule" firestore:"rentSchedule"`
 
-	// System fields
-	CreatedAt time.Time `json:"createdAt" firestore:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt" firestore:"updatedAt"`
+	// System fields — also stored as either Timestamp or string depending on when the record was created
+	CreatedAt interface{} `json:"createdAt,omitempty" firestore:"createdAt,omitempty"`
+	UpdatedAt interface{} `json:"updatedAt,omitempty" firestore:"updatedAt,omitempty"`
 }
 
 // BuyerInfo represents buyer information stored in property document

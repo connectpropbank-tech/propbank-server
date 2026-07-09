@@ -152,6 +152,10 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 		Timestamp:           time.Now().Format(time.RFC3339),
 		IsRead:              false,
 		Priority:            "medium",
+		// Structured review fields
+		ReviewerType: req.ReviewerType,
+		TenantPart:   req.TenantPart,
+		OwnerPart:    req.OwnerPart,
 	}
 
 	_, err = h.adminNotificationService.CreateNotification(ctx, notificationReq)

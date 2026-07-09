@@ -216,8 +216,8 @@ func (h *PropertyHandler) CreateProperty(w http.ResponseWriter, r *http.Request)
 			Spouse:           req.TenantSpouse,
 			RentSchedule:     req.RentSchedule, // Also map rent schedule if provided
 			IsActive:         true,
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
+			CreatedAt:        time.Now().Format(time.RFC3339),
+			UpdatedAt:        time.Now().Format(time.RFC3339),
 		}
 
 		// Try to link with existing user by email

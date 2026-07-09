@@ -69,6 +69,10 @@ func (s *AdminNotificationService) CreateNotification(ctx context.Context, req m
 		RequestVisit: req.RequestVisit,
 		VisitDate:    req.VisitDate,
 		VisitTime:    req.VisitTime,
+		// Review specific fields
+		ReviewerType: req.ReviewerType,
+		TenantPart:   req.TenantPart,
+		OwnerPart:    req.OwnerPart,
 		Timestamp:    timestamp,
 		IsRead:       req.IsRead,
 		Priority:     req.Priority,

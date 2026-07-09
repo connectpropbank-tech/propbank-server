@@ -161,9 +161,18 @@ func (rs *ReminderScheduler) checkAndSendRentReminders() {
 			if dueDate > 0 && dueDate <= 31 {
 				// Check if today matches
 				if dayOfMonth == dueDate {
-					// Check if already sent today
-					lastSent := tenant.LastRentPaymentReminderSentAt
-					if lastSent.IsZero() || !isSameDay(lastSent, today) {
+					// Check if already sent today — handle both time.Time (old Timestamp records) and string (newer records)
+					alreadySentToday := false
+					if lastSentVal := tenant.LastRentPaymentReminderSentAt; lastSentVal != nil {
+						todayStr := today.Format("2006-01-02")
+						switch v := lastSentVal.(type) {
+						case time.Time:
+							alreadySentToday = isSameDay(v, today)
+						case string:
+							alreadySentToday = strings.HasPrefix(v, todayStr)
+						}
+					}
+					if !alreadySentToday {
 						// Send email
 						emailData := RentPaymentReminderEmailData{
 							TenantName:      tenant.FirstName + " " + tenant.LastName,
@@ -171,13 +180,13 @@ func (rs *ReminderScheduler) checkAndSendRentReminders() {
 							PropertyTitle:   property.Title,
 							PropertyAddress: property.Address,
 							MonthlyRent:     tenant.MonthlyRent,
-							DueDate:         getOrdinal(dueDate), // Use parsed date for ordinal
+							DueDate:         getOrdinal(dueDate),
 						}
 
 						err := rs.emailService.SendRentPaymentReminder(emailData)
 						if err == nil {
-							// Update LastRentPaymentReminderSentAt
-							property.Tenants[i].LastRentPaymentReminderSentAt = today
+							// Store as RFC3339 string going forward
+							property.Tenants[i].LastRentPaymentReminderSentAt = today.Format(time.RFC3339)
 							updated = true
 							fmt.Printf("Sent rent reminder to %s for property %s\n", tenant.Email, property.Title)
 						} else {
@@ -294,9 +303,17 @@ func (rs *ReminderScheduler) checkAndSendNoticePeriodReminders() {
 
 			// Check if today matches or has passed the notice start date
 			if (today.After(noticeStartDate) || isSameDay(today, noticeStartDate)) && today.Before(leaseEnd) {
-				// Check if already notified
-				lastSent := tenant.LastNoticePeriodReminderSentAt
-				if lastSent.IsZero() {
+				// Check if already notified — handle both time.Time (old Timestamp) and string (newer records)
+				alreadyNotified := false
+				if lastSentVal := tenant.LastNoticePeriodReminderSentAt; lastSentVal != nil {
+					switch v := lastSentVal.(type) {
+					case time.Time:
+						alreadyNotified = !v.IsZero()
+					case string:
+						alreadyNotified = v != ""
+					}
+				}
+				if !alreadyNotified {
 
 					// Prepare Email Data
 					emailData := NoticePeriodEmailData{
@@ -314,13 +331,12 @@ func (rs *ReminderScheduler) checkAndSendNoticePeriodReminders() {
 
 					// Send to Owner
 					emailData.RecipientType = "owner"
-					// Assuming property.OwnerEmail exists and is populated
 					if property.OwnerEmail != "" {
 						rs.emailService.SendNoticePeriodReminder(emailData, []string{property.OwnerEmail})
 					}
 
-					// Update status
-					property.Tenants[i].LastNoticePeriodReminderSentAt = today
+					// Store as RFC3339 string going forward
+					property.Tenants[i].LastNoticePeriodReminderSentAt = today.Format(time.RFC3339)
 					updated = true
 					fmt.Printf("Sent notice period reminder for %s\n", property.Title)
 				}

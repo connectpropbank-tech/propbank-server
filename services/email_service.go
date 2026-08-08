@@ -584,6 +584,10 @@ type AgreementTerminationEmailData struct {
 	PropertyTitle      string
 	PropertyAddress    string
 	PropertyType       string
+	UnitNumber         string
+	Floor              string
+	Configuration      string
+	CarpetArea         string
 	MonthlyRent        string // Added missing field
 	TerminationDate    string
 	Reason             string
@@ -665,44 +669,60 @@ func (es *EmailService) buildAgreementNoticeEmail(data AgreementTerminationEmail
     <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         <!-- Header -->
         <tr>
-            <td style="background: linear-gradient(135deg, #f59e0b 0%%, #d97706 100%%); padding: 30px; text-align: center;">
+            <td style="background-color: #1e293b; padding: 30px; text-align: center;">
                 <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
-                <p style="color: #fde68a; margin: 10px 0 0 0; font-size: 14px;">%s</p>
+                <p style="color: #94a3b8; margin: 10px 0 0 0; font-size: 14px;">%s</p>
             </td>
         </tr>
         
         <!-- Main Content -->
         <tr>
             <td style="padding: 40px 30px;">
-                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
                 
-                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
                     %s
                 </p>
                 
                 <!-- Property Details Card -->
-                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #fffbeb; border-radius: 12px; border: 1px solid #fcd34d;">
+                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
                     <tr>
                         <td style="padding: 25px;">
-                            <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 16px; border-bottom: 1px solid #fcd34d; padding-bottom: 10px;">
+                            <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
                                 🏢 Property Details
                             </h3>
-                            <table cellpadding="0" cellspacing="0" width="100%%">
+                            <table cellpadding="0" cellspacing="0" width="100%%" style="color: #475569; font-size: 14px; line-height: 1.6;">
                                 <tr>
-                                    <td style="padding: 5px 0;"><strong style="color: #78350f;">Title:</strong></td>
-                                    <td style="color: #1e293b;">%s</td>
+                                    <td style="padding: 5px 0;" width="120"><strong style="color: #1e293b;">Title:</strong></td>
+                                    <td>%s</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 5px 0;"><strong style="color: #78350f;">Address:</strong></td>
-                                    <td style="color: #1e293b;">%s</td>
+                                    <td style="padding: 5px 0;"><strong style="color: #1e293b;">Address:</strong></td>
+                                    <td>%s</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 5px 0;"><strong style="color: #78350f;">Type:</strong></td>
-                                    <td style="color: #1e293b;">%s</td>
+                                    <td style="padding: 5px 0;"><strong style="color: #1e293b;">Unit/Flat No:</strong></td>
+                                    <td>%s</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 5px 0;"><strong style="color: #78350f;">Rent:</strong></td>
-                                    <td style="color: #1e293b;">₹%s/month</td>
+                                    <td style="padding: 5px 0;"><strong style="color: #1e293b;">Floor:</strong></td>
+                                    <td>%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0;"><strong style="color: #1e293b;">Type:</strong></td>
+                                    <td>%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0;"><strong style="color: #1e293b;">Configuration:</strong></td>
+                                    <td>%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0;"><strong style="color: #1e293b;">Carpet Area:</strong></td>
+                                    <td>%s</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0;"><strong style="color: #1e293b;">Rent:</strong></td>
+                                    <td>₹%s/month</td>
                                 </tr>
                             </table>
                         </td>
@@ -710,10 +730,10 @@ func (es *EmailService) buildAgreementNoticeEmail(data AgreementTerminationEmail
                 </table>
 
                 <!-- Schedule Card -->
-                <table cellpadding="0" cellspacing="0" width="100%%" style="margin-top: 20px; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <table cellpadding="0" cellspacing="0" width="100%%" style="margin-top: 20px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
                     <tr>
                         <td style="padding: 25px;">
-                            <h3 style="color: #475569; margin: 0 0 15px 0; font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                            <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
                                 📅 Termination Schedule
                             </h3>
                             <p style="color: #1e293b; font-size: 18px; margin: 0; font-weight: 600; text-align: center;">
@@ -723,13 +743,13 @@ func (es *EmailService) buildAgreementNoticeEmail(data AgreementTerminationEmail
                                 Anticipated Termination Date
                             </p>
                             <p style="color: #64748b; font-size: 14px; margin: 15px 0 0 0; text-align: center;">
-                                <strong>Notice Raised By:</strong> %s
+                                <strong style="color: #1e293b;">Notice Raised By:</strong> %s
                             </p>
                         </td>
                     </tr>
                 </table>
                 
-                <p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin: 25px 0 0 0;">
+                <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 25px 0 0 0;">
                     Please ensure all dues are cleared and the property is vacated by the termination date.
                 </p>
             </td>
@@ -754,7 +774,11 @@ func (es *EmailService) buildAgreementNoticeEmail(data AgreementTerminationEmail
 		introText,
 		data.PropertyTitle,
 		data.PropertyAddress,
+		data.UnitNumber,
+		data.Floor,
 		data.PropertyType,
+		data.Configuration,
+		data.CarpetArea,
 		data.MonthlyRent,
 		data.TerminationDate,
 		data.RaisedBy, // Added RaisedBy
@@ -765,13 +789,11 @@ func (es *EmailService) buildAgreementNoticeEmail(data AgreementTerminationEmail
 func (es *EmailService) buildAgreementTerminationEmail(data AgreementTerminationEmailData, isForTenant bool) string {
 	recipientName := data.OwnerName
 	headerText := "Agreement Terminated"
-	headerColor := "#059669"
 	introText := "The rental agreement has been successfully terminated."
 
 	if isForTenant {
 		recipientName = data.TenantName
 		headerText = "Agreement Termination Notice"
-		headerColor = "#dc2626"
 		introText = "The property owner has terminated your rental agreement. Please review the details below."
 	}
 
@@ -785,45 +807,50 @@ func (es *EmailService) buildAgreementTerminationEmail(data AgreementTermination
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
     <table cellpadding="0" cellspacing="0" width="100%%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         <tr>
-            <td style="background: linear-gradient(135deg, %s 0%%, #ef4444 100%%); padding: 30px; text-align: center;">
+            <td style="background-color: #1e293b; padding: 30px; text-align: center;">
                 <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🏠 Propbank</h1>
-                <p style="color: #fee2e2; margin: 10px 0 0 0; font-size: 14px;">%s</p>
+                <p style="color: #94a3b8; margin: 10px 0 0 0; font-size: 14px;">%s</p>
             </td>
         </tr>
         <tr>
             <td style="padding: 40px 30px;">
-                <h2 style="color: #1a365d; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
-                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">%s</p>
+                <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 22px;">Hi %s,</h2>
+                <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">%s</p>
                 
                 <!-- Termination Notice -->
-                <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-                    <h3 style="color: #dc2626; margin: 0 0 10px 0; font-size: 16px;">⚠️ Termination Details</h3>
-                    <p style="margin: 5px 0;"><strong>Termination Date:</strong> %s</p>
-                    <p style="margin: 5px 0;"><strong>Reason:</strong> %s</p>
-                    <p style="margin: 5px 0;"><strong>Notice Raised By:</strong> %s</p>
+                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                    <h3 style="color: #1e293b; margin: 0 0 10px 0; font-size: 16px;">⚠️ Termination Details</h3>
+                    <p style="margin: 5px 0; color: #475569; font-size: 14px;"><strong style="color: #1e293b;">Termination Date:</strong> %s</p>
+                    <p style="margin: 5px 0; color: #475569; font-size: 14px;"><strong style="color: #1e293b;">Reason:</strong> %s</p>
+                    <p style="margin: 5px 0; color: #475569; font-size: 14px;"><strong style="color: #1e293b;">Notice Raised By:</strong> %s</p>
                 </div>
 
                 <!-- Property Details -->
-                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
                     <tr>
                         <td style="padding: 20px;">
-                            <h3 style="color: #1a365d; margin: 0 0 15px 0; font-size: 16px;">🏢 Property Details</h3>
-                            <p style="margin: 5px 0;"><strong>Property:</strong> %s</p>
-                            <p style="margin: 5px 0;"><strong>Address:</strong> %s</p>
-                            <p style="margin: 5px 0;"><strong>Type:</strong> %s</p>
+                            <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">🏢 Property Details</h3>
+                            <table cellpadding="0" cellspacing="0" width="100%%" style="color: #475569; font-size: 14px; line-height: 1.6;">
+                                <tr><td style="padding: 4px 0;" width="120"><strong style="color: #1e293b;">Property:</strong></td><td>%s</td></tr>
+                                <tr><td style="padding: 4px 0;"><strong style="color: #1e293b;">Address:</strong></td><td>%s</td></tr>
+                                <tr><td style="padding: 4px 0;"><strong style="color: #1e293b;">Unit/Flat No:</strong></td><td>%s</td></tr>
+                                <tr><td style="padding: 4px 0;"><strong style="color: #1e293b;">Floor:</strong></td><td>%s</td></tr>
+                                <tr><td style="padding: 4px 0;"><strong style="color: #1e293b;">Type:</strong></td><td>%s</td></tr>
+                                <tr><td style="padding: 4px 0;"><strong style="color: #1e293b;">Configuration:</strong></td><td>%s</td></tr>
+                                <tr><td style="padding: 4px 0;"><strong style="color: #1e293b;">Carpet Area:</strong></td><td>%s</td></tr>
+                                <tr><td style="padding: 4px 0;"><strong style="color: #1e293b;">Rent:</strong></td><td>₹%s/month</td></tr>
+                            </table>
                         </td>
                     </tr>
                 </table>
 
-
-
                 <!-- Agreement Period -->
-                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #ecfdf5; border-radius: 12px; border: 1px solid #6ee7b7;">
+                <table cellpadding="0" cellspacing="0" width="100%%" style="background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
                     <tr>
                         <td style="padding: 20px;">
-                            <h3 style="color: #065f46; margin: 0 0 15px 0; font-size: 16px;">📅 Agreement Period</h3>
-                            <p style="margin: 5px 0;"><strong>Start Date:</strong> %s</p>
-                            <p style="margin: 5px 0;"><strong>End Date:</strong> %s</p>
+                            <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">📅 Agreement Period</h3>
+                            <p style="margin: 5px 0; color: #475569; font-size: 14px;"><strong style="color: #1e293b;">Start Date:</strong> %s</p>
+                            <p style="margin: 5px 0; color: #475569; font-size: 14px;"><strong style="color: #1e293b;">End Date:</strong> %s</p>
                         </td>
                     </tr>
                 </table>
@@ -842,7 +869,6 @@ func (es *EmailService) buildAgreementTerminationEmail(data AgreementTermination
 </body>
 </html>
 `,
-		headerColor,
 		headerText,
 		recipientName,
 		introText,
@@ -851,8 +877,12 @@ func (es *EmailService) buildAgreementTerminationEmail(data AgreementTermination
 		data.RaisedBy,
 		data.PropertyTitle,
 		data.PropertyAddress,
+		data.UnitNumber,
+		data.Floor,
 		data.PropertyType,
-
+		data.Configuration,
+		data.CarpetArea,
+		data.MonthlyRent,
 		data.AgreementStartDate,
 		data.AgreementEndDate,
 	)

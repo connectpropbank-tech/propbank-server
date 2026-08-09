@@ -25,6 +25,7 @@ type InspectionReport struct {
 	ElectricityBillMeterImage string `firestore:"electricityBillMeterImage,omitempty" json:"electricityBillMeterImage,omitempty"`
 	ElectricityBillReceipt    string `firestore:"electricityBillReceipt,omitempty" json:"electricityBillReceipt,omitempty"`
 	ApartmentConditionImage   string `firestore:"apartmentConditionImage,omitempty" json:"apartmentConditionImage,omitempty"`
+	ApartmentConditionImages  []string `firestore:"apartmentConditionImages,omitempty" json:"apartmentConditionImages,omitempty"`
 	MGLBillMeterImage         string `firestore:"mglBillMeterImage,omitempty" json:"mglBillMeterImage,omitempty"`
 	MGLBillReceipt            string `firestore:"mglBillReceipt,omitempty" json:"mglBillReceipt,omitempty"`
 	InternetImage             string `firestore:"internetImage,omitempty" json:"internetImage,omitempty"`
@@ -50,6 +51,7 @@ type CreateInspectionReportRequest struct {
 	ElectricityBillMeterImage string `json:"electricityBillMeterImage,omitempty"`
 	ElectricityBillReceipt    string `json:"electricityBillReceipt,omitempty"`
 	ApartmentConditionImage   string `json:"apartmentConditionImage,omitempty"`
+	ApartmentConditionImages  []string `json:"apartmentConditionImages,omitempty"`
 	MGLBillMeterImage         string `json:"mglBillMeterImage,omitempty"`
 	MGLBillReceipt            string `json:"mglBillReceipt,omitempty"`
 	InternetImage             string `json:"internetImage,omitempty"`

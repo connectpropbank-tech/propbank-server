@@ -850,6 +850,28 @@ func (h *PropertyHandler) UpdateProperty(w http.ResponseWriter, r *http.Request)
 				}
 				// Skip "false" strings too
 			}
+		case "tenants":
+			if tenantsArray, ok := value.([]interface{}); ok {
+				var validTenants []interface{}
+				for _, t := range tenantsArray {
+					if tMap, ok := t.(map[string]interface{}); ok {
+						email, _ := tMap["email"].(string)
+						first, _ := tMap["firstName"].(string)
+						last, _ := tMap["lastName"].(string)
+						phone, _ := tMap["phone"].(string)
+						
+						if strings.TrimSpace(email) != "" || strings.TrimSpace(first) != "" || strings.TrimSpace(last) != "" || strings.TrimSpace(phone) != "" {
+							validTenants = append(validTenants, t)
+						}
+					} else {
+						// If it's not a map, keep it just in case
+						validTenants = append(validTenants, t)
+					}
+				}
+				updateData[key] = validTenants
+			} else {
+				updateData[key] = value
+			}
 		default:
 			updateData[key] = value
 		}
@@ -1333,8 +1355,6 @@ func (h *PropertyHandler) sendTenantAddedEmails(ctx context.Context, property *m
 		leaseEnd, _ := tenantMap["leaseEndDate"].(string)
 		tenantRent, _ := tenantMap["monthlyRent"].(string)
 
-		fmt.Printf("[PropertyHandler] DEBUG: Checking tenant %s (%s), isActive=%v\n", tenantEmail, tenantFirstName, isActive)
-
 		// Skip if tenant email already existed (not a new tenant) or if inactive
 		if tenantEmailClean != "" && existingTenantEmails[tenantEmailClean] {
 			fmt.Printf("[PropertyHandler] SKIP: Tenant %s already exists in property\n", tenantEmail)
@@ -1343,6 +1363,12 @@ func (h *PropertyHandler) sendTenantAddedEmails(ctx context.Context, property *m
 
 		if !isActive {
 			fmt.Printf("[PropertyHandler] SKIP: Tenant %s is not active\n", tenantEmail)
+			continue
+		}
+
+		// Skip if the tenant is just a "ghost" empty entry with no valid data
+		if tenantEmailClean == "" && strings.TrimSpace(tenantFirstName) == "" && strings.TrimSpace(tenantLastName) == "" && strings.TrimSpace(tenantPhone) == "" {
+			fmt.Printf("[PropertyHandler] SKIP: Tenant is empty/ghost entry\n")
 			continue
 		}
 

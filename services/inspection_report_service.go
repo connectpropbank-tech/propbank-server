@@ -44,6 +44,7 @@ func (s *InspectionReportService) CreateInspectionReport(ctx context.Context, re
 		ElectricityBillMeterImage: req.ElectricityBillMeterImage,
 		ElectricityBillReceipt:    req.ElectricityBillReceipt,
 		ApartmentConditionImage:   req.ApartmentConditionImage,
+		ApartmentConditionImages:  req.ApartmentConditionImages,
 		MGLBillMeterImage:         req.MGLBillMeterImage,
 		MGLBillReceipt:            req.MGLBillReceipt,
 		InternetImage:             req.InternetImage,

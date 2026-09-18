@@ -1116,6 +1116,7 @@ func (h *PropertyHandler) convertToPropertyResponse(property models.Property) mo
 		UpdatedAt:             property.UpdatedAt,
 		Bedrooms:              property.Bedrooms,
 		Bathrooms:             property.Bathrooms,
+		RentSchedule:          property.RentSchedule,
 
 		// Pre-leased Details
 		IsPreLeased:           property.IsPreLeased,
